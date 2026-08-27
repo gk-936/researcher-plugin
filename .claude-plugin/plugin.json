@@ -3,6 +3,6 @@
   "displayName": "Research Agent",
   "version": "0.1.0",
   "description": "Autonomous research ideation assistant: analyzes a problem statement and discovers literature (Phase 1). Gap hunting, idea generation, novelty auditing and experiment design arrive in later phases.",
-  "author": { "email": "gokuld088@gmail.com" },
+  "author": { "name": "gokuld088", "email": "gokuld088@gmail.com" },
   "keywords": ["research", "literature-review", "ideation", "science"]
 }
