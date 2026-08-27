@@ -121,4 +121,42 @@ describe("searchPapers", () => {
 
     expect(result.candidates).toHaveLength(1);
   });
+
+  it("preserves identity of an existing retained paper when a fresh duplicate arrives under a different id", async () => {
+    const { store, cacheDir } = setup();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+
+    const existingPaper = fakePaper("s2:abc", {
+      arxiv_id: "123",
+      source: "semantic_scholar",
+      abstract: null,
+    });
+    store.upsertPapers(project.id, [existingPaper]);
+    store.retainPapers(project.id, [{ id: "s2:abc", relevance_note: "core reference" }], DEFAULT_BUDGET.maxRetainedPapers);
+
+    const provider = fakeProvider("arxiv", async () => [
+      fakePaper("arxiv:123", {
+        arxiv_id: "123",
+        source: "arxiv",
+        abstract: "A fresh abstract found later.",
+      }),
+    ]);
+
+    const result = await searchPapers({
+      store,
+      providers: [provider],
+      budget: DEFAULT_BUDGET,
+      cacheDir,
+      projectId: project.id,
+      queries: ["q1"],
+    });
+
+    expect(result.candidates.find((c) => c.id === "s2:abc" || c.id === "arxiv:123")).toBeUndefined();
+
+    const matchingPapers = store.getAllPapers(project.id).filter((p) => p.arxiv_id === "123");
+    expect(matchingPapers).toHaveLength(1);
+    expect(matchingPapers[0].id).toBe("s2:abc");
+    expect(matchingPapers[0].status).toBe("retained");
+    expect(matchingPapers[0].relevance_note).toBe("core reference");
+  });
 });

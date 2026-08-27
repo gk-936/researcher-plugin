@@ -22,6 +22,14 @@ export interface SearchPapersOptions {
   perQueryLimit?: number;
 }
 
+function reconcileWithExisting(combined: Paper[], existing: Paper[]): Paper[] {
+  return combined.map((paper) => {
+    const match = existing.find((e) => dedupePapers([e, paper]).length === 1);
+    if (!match || match.id === paper.id) return paper;
+    return { ...paper, id: match.id, status: match.status, relevance_note: match.relevance_note };
+  });
+}
+
 export async function searchPapers(options: SearchPapersOptions): Promise<SearchPapersResult> {
   const { store, providers, budget, cacheDir, projectId, queries, perQueryLimit = 10 } = options;
 
@@ -61,7 +69,7 @@ export async function searchPapers(options: SearchPapersOptions): Promise<Search
 
   const existing = store.getAllPapers(projectId);
   const existingIds = new Set(existing.map((p) => p.id));
-  const combined = dedupePapers([...existing, ...freshPapers]);
+  const combined = reconcileWithExisting(dedupePapers([...existing, ...freshPapers]), existing);
 
   const rank = (p: Paper): number => (p.status === "retained" ? 0 : existingIds.has(p.id) ? 1 : 2);
   const capped = [...combined].sort((a, b) => rank(a) - rank(b)).slice(0, budget.maxCandidatesPerProject);
