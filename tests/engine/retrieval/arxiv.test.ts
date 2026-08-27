@@ -22,6 +22,17 @@ const FIXTURE_FEED = `<?xml version="1.0" encoding="UTF-8"?>
 
 const EMPTY_FEED = `<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>`;
 
+const SINGLE_ENTRY_FEED = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <id>http://arxiv.org/abs/2401.00003v1</id>
+    <published>2022-03-10T00:00:00Z</published>
+    <title>Solo Entry Feed</title>
+    <summary>A feed with just one entry.</summary>
+    <author><name>Katherine Johnson</name></author>
+  </entry>
+</feed>`;
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -37,10 +48,27 @@ describe("parseArxivFeed", () => {
     expect(papers[0].id).toBe("arxiv:2401.00001");
     expect(papers[0].year).toBe(2024);
     expect(papers[0].source).toBe("arxiv");
+
+    expect(papers[1].title).toBe("Sparse Reward RL");
+    expect(papers[1].abstract).toBe("A study of sparse rewards.");
+    expect(papers[1].authors).toEqual(["Grace Hopper"]);
+    expect(papers[1].arxiv_id).toBe("2401.00002");
+    expect(papers[1].id).toBe("arxiv:2401.00002");
+    expect(papers[1].year).toBe(2023);
   });
 
   it("returns an empty array for a feed with no entries", () => {
     expect(parseArxivFeed(EMPTY_FEED)).toEqual([]);
+  });
+
+  it("parses a feed with a single entry (non-array author/entry branches)", () => {
+    const papers = parseArxivFeed(SINGLE_ENTRY_FEED);
+    expect(papers).toHaveLength(1);
+    expect(papers[0].title).toBe("Solo Entry Feed");
+    expect(papers[0].id).toBe("arxiv:2401.00003");
+    expect(papers[0].arxiv_id).toBe("2401.00003");
+    expect(papers[0].authors).toEqual(["Katherine Johnson"]);
+    expect(papers[0].year).toBe(2022);
   });
 });
 
