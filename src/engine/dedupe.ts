@@ -12,6 +12,16 @@ function fuzzyKey(p: Paper): string {
 function keyFor(p: Paper): string {
   if (p.arxiv_id) return `arxiv:${p.arxiv_id}`;
   if (p.doi) return `doi:${p.doi.toLowerCase()}`;
+
+  // Check for degenerate fuzzy key and fall back to unique id
+  const normalizedTitle = normalizeTitle(p.title);
+  const firstAuthor = (p.authors[0] ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  const isDegenerate = normalizedTitle === "" && firstAuthor === "" && p.year === null;
+
+  if (isDegenerate) {
+    return `unique:${p.id}`;
+  }
+
   return fuzzyKey(p);
 }
 

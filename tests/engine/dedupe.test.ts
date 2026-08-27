@@ -54,4 +54,18 @@ describe("dedupePapers", () => {
     const without = paper({ id: "arxiv:1b", arxiv_id: "1", abstract: null });
     expect(dedupePapers([without, withAbstract])[0].abstract).toBe("has content");
   });
+
+  it("merges two papers with the same DOI (case-insensitive) when no arxiv_id is shared", () => {
+    const a = paper({ id: "doi:1", doi: "10.1000/XYZ", arxiv_id: null, source_quality: 0.5 });
+    const b = paper({ id: "doi:2", doi: "10.1000/xyz", arxiv_id: null, source_quality: 0.8 });
+    const result = dedupePapers([a, b]);
+    expect(result).toHaveLength(1);
+    expect(result[0].source_quality).toBe(0.8);
+  });
+
+  it("keeps degenerate-metadata papers with different ids separate", () => {
+    const a = paper({ id: "deg:1", title: "", authors: [], year: null, arxiv_id: null, doi: null });
+    const b = paper({ id: "deg:2", title: "", authors: [], year: null, arxiv_id: null, doi: null });
+    expect(dedupePapers([a, b])).toHaveLength(2);
+  });
 });
