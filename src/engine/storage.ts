@@ -117,6 +117,7 @@ export class ProjectStore {
   }
 
   upsertPapers(projectId: string, papers: Paper[]): Paper[] {
+    if (!this.getProject(projectId)) throw new Error(`Unknown project: ${projectId}`);
     const existing = this.getAllPapers(projectId);
     const byId = new Map(existing.map((p) => [p.id, p]));
     for (const incoming of papers) {
@@ -137,6 +138,7 @@ export class ProjectStore {
   }
 
   retainPapers(projectId: string, retained: { id: string; relevance_note: string }[], maxRetained: number): number {
+    if (!this.getProject(projectId)) throw new Error(`Unknown project: ${projectId}`);
     const papers = this.getAllPapers(projectId);
     const byId = new Map(papers.map((p) => [p.id, p]));
     const alreadyRetained = papers.filter((p) => p.status === "retained").length;

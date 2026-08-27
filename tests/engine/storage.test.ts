@@ -102,6 +102,18 @@ describe("ProjectStore.upsertPapers", () => {
   });
 });
 
+describe("ProjectStore.upsertPapers / retainPapers unknown project guard", () => {
+  it("upsertPapers throws on an unknown project id", () => {
+    store = freshStore();
+    expect(() => store.upsertPapers("nope", [])).toThrow();
+  });
+
+  it("retainPapers throws on an unknown project id", () => {
+    store = freshStore();
+    expect(() => store.retainPapers("nope", [], 20)).toThrow();
+  });
+});
+
 describe("ProjectStore.getPapers", () => {
   it("filters by status, ids, and limit", () => {
     store = freshStore();
