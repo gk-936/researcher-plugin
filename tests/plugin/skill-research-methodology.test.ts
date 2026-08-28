@@ -45,4 +45,11 @@ describe("skills/research-methodology/SKILL.md", () => {
     expect(body).toMatch(/mutation/i);
     expect(body).not.toMatch(/Idea mutation, the evidence\/assumption ledgers, the research graveyard.*not implemented/s);
   });
+
+  it("documents experiment-design and review discipline, and the Phase 4 phase boundary", () => {
+    expect(body).toMatch(/minimal validation experiment/i);
+    expect(body).toMatch(/fatal/);
+    expect(body).toMatch(/independently/i);
+    expect(body).not.toMatch(/Citation graphs, vector\/embedding retrieval, experiment design, and reviewer simulation are not implemented/);
+  });
 });
