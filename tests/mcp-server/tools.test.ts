@@ -100,11 +100,42 @@ describe("searchPapersTool / getPapers / retainPapers", () => {
   });
 });
 
-describe("saveLiteratureSummary", () => {
+describe("saveLiteratureSummary / getLiteratureSummary", () => {
   it("saves the summary", () => {
     const ctx = setup();
     const created = tools.createProject(ctx, { problem: "p" });
     expect(tools.saveLiteratureSummary(ctx, { project_id: created.project_id, summary: "a summary" })).toEqual({ saved: true });
+  });
+
+  it("reads back a saved summary", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    tools.saveLiteratureSummary(ctx, { project_id: created.project_id, summary: "a summary", taxonomy_dimensions: ["dim"] });
+    expect(tools.getLiteratureSummary(ctx, { project_id: created.project_id })).toEqual({
+      summary: "a summary",
+      taxonomy_dimensions: ["dim"],
+    });
+  });
+
+  it("returns an error object when no summary has been saved", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    expect(tools.getLiteratureSummary(ctx, { project_id: created.project_id })).toEqual({ error: "No literature summary saved." });
+  });
+});
+
+describe("saveProblemSpec / getProblemSpec", () => {
+  it("reads back a saved spec", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    tools.saveProblemSpec(ctx, { project_id: created.project_id, spec: validSpec });
+    expect(tools.getProblemSpec(ctx, { project_id: created.project_id })).toEqual(validSpec);
+  });
+
+  it("returns an error object when no spec has been saved", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    expect(tools.getProblemSpec(ctx, { project_id: created.project_id })).toEqual({ error: "No problem spec saved." });
   });
 });
 

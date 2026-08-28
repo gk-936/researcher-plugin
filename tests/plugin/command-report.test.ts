@@ -22,4 +22,9 @@ describe("commands/report.md", () => {
     expect(body).toMatch(/Candidate Research Ideas/);
     expect(body).toMatch(/never fabricate/i);
   });
+
+  it("instructs reading the spec and literature summary via their own tools, tolerating either being unsaved", () => {
+    expect(body).toMatch(/get_problem_spec/);
+    expect(body).toMatch(/get_literature_summary/);
+  });
 });

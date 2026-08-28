@@ -5,13 +5,13 @@ disable-model-invocation: true
 ---
 Resolve the research project the same way /literature does, using this optional project id argument: $ARGUMENTS. If no project exists, say so and stop.
 
-Gather the project's state, spec, and retained papers via the get_project_state and get_papers tools, and the literature summary if saved.
+Gather the project's state and retained papers via `get_project_state` and `get_papers`, the structured spec via `get_problem_spec`, and the literature summary via `get_literature_summary`. Both `get_problem_spec` and `get_literature_summary` return `{error: "..."}` if nothing has been saved yet — treat that as "not available in this project yet," not as a failure, and say so plainly in the relevant section rather than fabricating content.
 
 Produce a report with these sections, in order:
 
 1. **Executive Summary** — 2-4 sentences on the problem and what's been found so far.
-2. **Problem Interpretation** — the research question, domain, and objectives from the spec.
-3. **Assumptions** — the assumptions list from the spec.
+2. **Problem Interpretation** — the research question, domain, and objectives from the spec (say plainly if no spec has been saved yet).
+3. **Assumptions** — the assumptions list from the spec (say plainly if no spec has been saved yet).
 4. **Research Landscape** — the literature summary plus the retained papers list (title, authors, year, venue, url).
 5. **References** — every retained paper as a numbered citation with id, title, year, venue, and url; mark any paper missing a url or doi as unverified rather than omitting it silently.
 

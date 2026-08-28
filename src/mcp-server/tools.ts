@@ -48,6 +48,13 @@ export function saveProblemSpec(ctx: ToolContext, input: z.infer<typeof saveProb
   return { saved: true };
 }
 
+export const getProblemSpecInput = z.object({ project_id: z.string() }).strict();
+export function getProblemSpec(ctx: ToolContext, input: z.infer<typeof getProblemSpecInput>) {
+  const spec = ctx.store.getSpec(input.project_id);
+  if (!spec) return { error: "No problem spec saved." };
+  return spec;
+}
+
 export const searchPapersInput = z.object({ project_id: z.string(), queries: z.array(z.string().min(1)).min(1) }).strict();
 export async function searchPapersTool(ctx: ToolContext, input: z.infer<typeof searchPapersInput>) {
   return searchPapers({
@@ -94,4 +101,11 @@ export const saveLiteratureSummaryInput = z
 export function saveLiteratureSummary(ctx: ToolContext, input: z.infer<typeof saveLiteratureSummaryInput>) {
   ctx.store.saveLiteratureSummary(input.project_id, input.summary, input.taxonomy_dimensions);
   return { saved: true };
+}
+
+export const getLiteratureSummaryInput = z.object({ project_id: z.string() }).strict();
+export function getLiteratureSummary(ctx: ToolContext, input: z.infer<typeof getLiteratureSummaryInput>) {
+  const summary = ctx.store.getLiteratureSummary(input.project_id);
+  if (!summary) return { error: "No literature summary saved." };
+  return summary;
 }

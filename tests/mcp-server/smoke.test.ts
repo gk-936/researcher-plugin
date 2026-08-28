@@ -25,13 +25,15 @@ afterAll(async () => {
 });
 
 describe("research-server MCP smoke test", () => {
-  it("lists exactly the 8 expected tools", async () => {
+  it("lists exactly the 10 expected tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
         "create_project",
+        "get_literature_summary",
         "get_papers",
+        "get_problem_spec",
         "get_project_state",
         "list_projects",
         "retain_papers",

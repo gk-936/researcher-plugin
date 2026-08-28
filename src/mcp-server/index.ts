@@ -65,6 +65,17 @@ server.registerTool(
 );
 
 server.registerTool(
+  "get_problem_spec",
+  {
+    title: "Get Problem Spec",
+    description: "Get the structured research spec saved for a project (domain, keywords, objectives, assumptions, etc.), or an error if none has been saved yet.",
+    inputSchema: tools.getProblemSpecInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getProblemSpec(ctx, input))
+);
+
+server.registerTool(
   "search_papers",
   {
     title: "Search Papers",
@@ -106,6 +117,17 @@ server.registerTool(
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
   async (input) => respond(tools.saveLiteratureSummary(ctx, input))
+);
+
+server.registerTool(
+  "get_literature_summary",
+  {
+    title: "Get Literature Summary",
+    description: "Get the saved literature synthesis summary for a project, or an error if none has been saved yet.",
+    inputSchema: tools.getLiteratureSummaryInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getLiteratureSummary(ctx, input))
 );
 
 const transport = new StdioServerTransport();

@@ -17,4 +17,11 @@ describe("commands/literature.md", () => {
     expect(body).toMatch(/retained/);
     expect(body).toMatch(/\$ARGUMENTS/);
   });
+
+  it("instructs reading the spec and literature summary via their own tools, tolerating either being unsaved", () => {
+    expect(body).toMatch(/get_problem_spec/);
+    expect(body).toMatch(/get_literature_summary/);
+    expect(body).toMatch(/No problem spec saved/);
+    expect(body).toMatch(/No literature summary saved/);
+  });
 });
