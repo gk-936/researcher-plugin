@@ -476,3 +476,76 @@ describe("ProjectStore.createIdeaMutation", () => {
     expect(result).toEqual({ saved: false, reason: "maxMutationsPerProject budget exhausted" });
   });
 });
+
+describe("saveExperiment / getExperiment / getAllExperiments", () => {
+  it("saves an experiment for an idea and retrieves it", () => {
+    store = freshStore();
+    const project = store.createProject("problem", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), DEFAULT_BUDGET.maxRawIdeas)!;
+    const experiment = store.saveExperiment(project.id, idea.id, {
+      idea_id: idea.id,
+      minimal_validation: { setup: "s", metric: "m", expected_signal: "e", estimated_effort: "1 day" },
+      full_roadmap: ["step 1"],
+      risks: [],
+    });
+    expect(experiment.id).toBe("experiment-001");
+    expect(store.getExperiment(project.id, idea.id)).toEqual(experiment);
+  });
+
+  it("returns null for an idea with no saved experiment", () => {
+    store = freshStore();
+    const project = store.createProject("problem", DEFAULT_BUDGET);
+    expect(store.getExperiment(project.id, "idea-999")).toBeNull();
+  });
+
+  it("overwrites an existing experiment for the same idea rather than duplicating", () => {
+    store = freshStore();
+    const project = store.createProject("problem", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), DEFAULT_BUDGET.maxRawIdeas)!;
+    store.saveExperiment(project.id, idea.id, {
+      idea_id: idea.id,
+      minimal_validation: { setup: "s1", metric: "m", expected_signal: "e", estimated_effort: "1 day" },
+      full_roadmap: ["step 1"],
+      risks: [],
+    });
+    store.saveExperiment(project.id, idea.id, {
+      idea_id: idea.id,
+      minimal_validation: { setup: "s2", metric: "m", expected_signal: "e", estimated_effort: "1 day" },
+      full_roadmap: ["step 1"],
+      risks: [],
+    });
+    expect(store.getAllExperiments(project.id)).toHaveLength(1);
+    expect(store.getExperiment(project.id, idea.id)!.minimal_validation.setup).toBe("s2");
+  });
+});
+
+describe("saveReview / getReview / getAllReviews", () => {
+  it("saves a review for an idea and retrieves it", () => {
+    store = freshStore();
+    const project = store.createProject("problem", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), DEFAULT_BUDGET.maxRawIdeas)!;
+    const review = store.saveReview(project.id, idea.id, {
+      idea_id: idea.id,
+      objections: [{ category: "novelty", objection: "close prior work exists", severity: "major" }],
+      overall_recommendation: "weak_reject",
+    });
+    expect(review.id).toBe("review-001");
+    expect(store.getReview(project.id, idea.id)).toEqual(review);
+  });
+
+  it("returns null for an idea with no saved review", () => {
+    store = freshStore();
+    const project = store.createProject("problem", DEFAULT_BUDGET);
+    expect(store.getReview(project.id, "idea-999")).toBeNull();
+  });
+
+  it("overwrites an existing review for the same idea rather than duplicating", () => {
+    store = freshStore();
+    const project = store.createProject("problem", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), DEFAULT_BUDGET.maxRawIdeas)!;
+    store.saveReview(project.id, idea.id, { idea_id: idea.id, objections: [], overall_recommendation: "accept" });
+    store.saveReview(project.id, idea.id, { idea_id: idea.id, objections: [], overall_recommendation: "reject" });
+    expect(store.getAllReviews(project.id)).toHaveLength(1);
+    expect(store.getReview(project.id, idea.id)!.overall_recommendation).toBe("reject");
+  });
+});

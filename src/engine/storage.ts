@@ -26,8 +26,23 @@ import {
   EvidenceLedgerEntrySchema,
   type EvidenceLedgerEntry,
   type MutationOperator,
+  ExperimentSchema,
+  type Experiment,
+  type NewExperiment,
+  ReviewSchema,
+  type Review,
+  type NewReview,
 } from "./schemas.js";
-import { createProjectId, createGapId, createIdeaId, createGraveyardEntryId, createAssumptionId, createEvidenceId } from "./ids.js";
+import {
+  createProjectId,
+  createGapId,
+  createIdeaId,
+  createGraveyardEntryId,
+  createAssumptionId,
+  createEvidenceId,
+  createExperimentId,
+  createReviewId,
+} from "./ids.js";
 import { logEvent } from "./logging.js";
 
 export interface ProjectSummary {
@@ -72,6 +87,12 @@ export class ProjectStore {
   }
   private evidenceFile(id: string): string {
     return join(this.projectDir(id), "evidence.json");
+  }
+  private experimentsFile(id: string): string {
+    return join(this.projectDir(id), "experiments.json");
+  }
+  private reviewsFile(id: string): string {
+    return join(this.projectDir(id), "reviews.json");
   }
   private logFile(id: string): string {
     return join(this.projectDir(id), "log.jsonl");
@@ -513,5 +534,61 @@ export class ProjectStore {
       operator,
     });
     return { saved: true, idea: created };
+  }
+
+  private getAllExperimentsRaw(projectId: string): Experiment[] {
+    if (!existsSync(this.experimentsFile(projectId))) return [];
+    const raw = JSON.parse(readFileSync(this.experimentsFile(projectId), "utf-8"));
+    return (raw as unknown[]).map((e) => ExperimentSchema.parse(e));
+  }
+
+  private saveAllExperiments(projectId: string, experiments: Experiment[]): void {
+    writeFileSync(this.experimentsFile(projectId), JSON.stringify(experiments, null, 2), "utf-8");
+  }
+
+  getAllExperiments(projectId: string): Experiment[] {
+    return this.getAllExperimentsRaw(projectId);
+  }
+
+  getExperiment(projectId: string, ideaId: string): Experiment | null {
+    return this.getAllExperimentsRaw(projectId).find((e) => e.idea_id === ideaId) ?? null;
+  }
+
+  saveExperiment(projectId: string, ideaId: string, experiment: NewExperiment): Experiment {
+    if (!this.getProject(projectId)) throw new Error(`Unknown project: ${projectId}`);
+    const existing = this.getAllExperimentsRaw(projectId);
+    const withoutThisIdea = existing.filter((e) => e.idea_id !== ideaId);
+    const created: Experiment = { ...experiment, id: createExperimentId(existing.length + 1) };
+    this.saveAllExperiments(projectId, [...withoutThisIdea, created]);
+    logEvent(this.logFile(projectId), "experiment_saved", projectId, { idea_id: ideaId });
+    return created;
+  }
+
+  private getAllReviewsRaw(projectId: string): Review[] {
+    if (!existsSync(this.reviewsFile(projectId))) return [];
+    const raw = JSON.parse(readFileSync(this.reviewsFile(projectId), "utf-8"));
+    return (raw as unknown[]).map((r) => ReviewSchema.parse(r));
+  }
+
+  private saveAllReviews(projectId: string, reviews: Review[]): void {
+    writeFileSync(this.reviewsFile(projectId), JSON.stringify(reviews, null, 2), "utf-8");
+  }
+
+  getAllReviews(projectId: string): Review[] {
+    return this.getAllReviewsRaw(projectId);
+  }
+
+  getReview(projectId: string, ideaId: string): Review | null {
+    return this.getAllReviewsRaw(projectId).find((r) => r.idea_id === ideaId) ?? null;
+  }
+
+  saveReview(projectId: string, ideaId: string, review: NewReview): Review {
+    if (!this.getProject(projectId)) throw new Error(`Unknown project: ${projectId}`);
+    const existing = this.getAllReviewsRaw(projectId);
+    const withoutThisIdea = existing.filter((r) => r.idea_id !== ideaId);
+    const created: Review = { ...review, id: createReviewId(existing.length + 1) };
+    this.saveAllReviews(projectId, [...withoutThisIdea, created]);
+    logEvent(this.logFile(projectId), "review_saved", projectId, { idea_id: ideaId });
+    return created;
   }
 }
