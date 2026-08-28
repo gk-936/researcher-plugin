@@ -1,0 +1,15 @@
+{
+  "name": "researcher-marketplace",
+  "description": "Self-hosted marketplace for the Research Agent plugin, an autonomous research ideation assistant.",
+  "owner": {
+    "name": "gk-936",
+    "email": "gokuld088@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "researcher",
+      "source": "./",
+      "description": "Autonomous research ideation assistant: given a problem statement, discovers literature, hunts research gaps, generates and adversarially audits candidate ideas, mutates rejected ideas, and proposes an experiment design and simulated review for the strongest survivors."
+    }
+  ]
+}

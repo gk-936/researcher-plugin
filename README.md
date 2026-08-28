@@ -4,7 +4,14 @@ An autonomous research ideation Claude Code plugin. Give it a research problem s
 
 ## Installation
 
-For local development, load the plugin directly without installing it:
+**Via marketplace** (recommended for regular use): this repo hosts itself as a marketplace via `.claude-plugin/marketplace.json`. Inside any Claude Code session:
+
+```
+/plugin marketplace add gk-936/researcher-plugin
+/plugin install researcher@researcher-marketplace
+```
+
+**For local development**, load the plugin directly from a working copy without installing it:
 
 ```bash
 npm install
