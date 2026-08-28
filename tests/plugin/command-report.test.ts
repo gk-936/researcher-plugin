@@ -11,15 +11,33 @@ describe("commands/report.md", () => {
     expect(data.context).toBeUndefined();
   });
 
-  it("covers the implemented report sections", () => {
-    for (const section of ["Executive Summary", "Problem Interpretation", "Assumptions", "Research Landscape", "References"]) {
+  it("covers the implemented report sections, including Gaps and Ideas", () => {
+    for (const section of [
+      "Executive Summary",
+      "Problem Interpretation",
+      "Assumptions",
+      "Research Landscape",
+      "Major Research Gaps",
+      "Candidate Research Ideas",
+      "References",
+    ]) {
       expect(body).toContain(section);
     }
   });
 
-  it("explicitly marks unimplemented sections rather than fabricating them", () => {
+  it("instructs pulling gaps and ideas via their own tools", () => {
+    expect(body).toMatch(/get_gaps/);
+    expect(body).toMatch(/get_ideas/);
+  });
+
+  it("instructs ordering ideas by verdict and saturation rather than leaving them unranked", () => {
+    expect(body).toMatch(/PASS.*WEAK.*FAIL|order/i);
+  });
+
+  it("explicitly marks only the still-unimplemented sections rather than fabricating them", () => {
     expect(body).toMatch(/Not Yet Available/);
-    expect(body).toMatch(/Candidate Research Ideas/);
+    expect(body).toMatch(/Mutated Directions/);
+    expect(body).toMatch(/Full Experimental Roadmap/);
     expect(body).toMatch(/never fabricate/i);
   });
 
