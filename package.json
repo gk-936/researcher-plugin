@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Autonomous research ideation Claude Code plugin — Phase 1 (problem analysis + literature discovery).",
+  "description": "Autonomous research ideation Claude Code plugin.",
   "scripts": {
     "build": "tsc",
+    "postinstall": "tsc",
     "test": "vitest run",
     "dev:mcp": "tsx src/mcp-server/index.ts"
   },
