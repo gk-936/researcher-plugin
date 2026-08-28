@@ -8,6 +8,8 @@ import {
   createGraveyardEntryId,
   createAssumptionId,
   createEvidenceId,
+  createExperimentId,
+  createReviewId,
 } from "../../src/engine/ids.js";
 
 describe("slugify", () => {
@@ -84,5 +86,18 @@ describe("createAssumptionId", () => {
 describe("createEvidenceId", () => {
   it("matches evidence-NNN", () => {
     expect(createEvidenceId(12)).toBe("evidence-012");
+  });
+});
+
+describe("createExperimentId", () => {
+  it("formats with zero-padded index", () => {
+    expect(createExperimentId(1)).toBe("experiment-001");
+    expect(createExperimentId(12)).toBe("experiment-012");
+  });
+});
+
+describe("createReviewId", () => {
+  it("formats with zero-padded index", () => {
+    expect(createReviewId(1)).toBe("review-001");
   });
 });

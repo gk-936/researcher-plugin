@@ -44,4 +44,8 @@ describe("DEFAULT_BUDGET", () => {
     expect(DEFAULT_BUDGET.maxMutationDepth).toBe(2);
     expect(DEFAULT_BUDGET.maxMutationsPerProject).toBe(3);
   });
+
+  it("includes maxIdeasEvaluated", () => {
+    expect(DEFAULT_BUDGET.maxIdeasEvaluated).toBe(3);
+  });
 });

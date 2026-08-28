@@ -218,6 +218,49 @@ export const EvidenceLedgerEntrySchema = z.object({
 });
 export type EvidenceLedgerEntry = z.infer<typeof EvidenceLedgerEntrySchema>;
 
+export const ExperimentSchema = z.object({
+  id: z.string(),
+  idea_id: z.string(),
+  minimal_validation: z.object({
+    setup: z.string(),
+    metric: z.string(),
+    expected_signal: z.string(),
+    estimated_effort: z.string(),
+  }),
+  full_roadmap: z.array(z.string()).min(1),
+  risks: z.array(z.string()),
+});
+export type Experiment = z.infer<typeof ExperimentSchema>;
+
+export const NewExperimentSchema = ExperimentSchema.omit({ id: true });
+export type NewExperiment = z.infer<typeof NewExperimentSchema>;
+
+export const ObjectionCategorySchema = z.enum(["novelty", "feasibility", "significance", "evaluation_validity"]);
+export type ObjectionCategory = z.infer<typeof ObjectionCategorySchema>;
+
+export const ObjectionSeveritySchema = z.enum(["minor", "major", "fatal"]);
+export type ObjectionSeverity = z.infer<typeof ObjectionSeveritySchema>;
+
+export const RecommendationSchema = z.enum(["accept", "weak_accept", "weak_reject", "reject"]);
+export type Recommendation = z.infer<typeof RecommendationSchema>;
+
+export const ReviewSchema = z.object({
+  id: z.string(),
+  idea_id: z.string(),
+  objections: z.array(
+    z.object({
+      category: ObjectionCategorySchema,
+      objection: z.string(),
+      severity: ObjectionSeveritySchema,
+    })
+  ),
+  overall_recommendation: RecommendationSchema,
+});
+export type Review = z.infer<typeof ReviewSchema>;
+
+export const NewReviewSchema = ReviewSchema.omit({ id: true });
+export type NewReview = z.infer<typeof NewReviewSchema>;
+
 export const BudgetSchema = z.object({
   maxDiscoverySearchesPerProject: z.number().int().positive(),
   maxCandidatesPerProject: z.number().int().positive(),
@@ -230,6 +273,7 @@ export const BudgetSchema = z.object({
   maxIdeasAudited: z.number().int().positive(),
   maxMutationDepth: z.number().int().nonnegative(),
   maxMutationsPerProject: z.number().int().nonnegative(),
+  maxIdeasEvaluated: z.number().int().positive(),
 });
 export type Budget = z.infer<typeof BudgetSchema>;
 

@@ -15,6 +15,10 @@ import {
   GraveyardEntrySchema,
   AssumptionLedgerEntrySchema,
   EvidenceLedgerEntrySchema,
+  ExperimentSchema,
+  NewExperimentSchema,
+  ReviewSchema,
+  NewReviewSchema,
 } from "../../src/engine/schemas.js";
 
 const validSpec = {
@@ -103,6 +107,7 @@ describe("BudgetSchema", () => {
       maxIdeasAudited: 4,
       maxMutationDepth: 2,
       maxMutationsPerProject: 3,
+      maxIdeasEvaluated: 3,
     };
     expect(() => BudgetSchema.parse(budget)).not.toThrow();
   });
@@ -129,6 +134,7 @@ describe("ProjectStateSchema", () => {
         maxIdeasAudited: 4,
         maxMutationDepth: 2,
         maxMutationsPerProject: 3,
+        maxIdeasEvaluated: 3,
       },
     };
     expect(() => ProjectStateSchema.parse(state)).not.toThrow();
@@ -365,7 +371,68 @@ describe("BudgetSchema with mutation fields", () => {
         maxIdeasAudited: 4,
         maxMutationDepth: 2,
         maxMutationsPerProject: 3,
+        maxIdeasEvaluated: 3,
       })
     ).not.toThrow();
+  });
+});
+
+describe("ExperimentSchema", () => {
+  const validExperiment = {
+    id: "experiment-001",
+    idea_id: "idea-001",
+    minimal_validation: {
+      setup: "Train a small model on a held-out split",
+      metric: "sample efficiency vs. baseline",
+      expected_signal: "significant reduction in samples-to-threshold",
+      estimated_effort: "2-3 days, single GPU",
+    },
+    full_roadmap: ["Minimal validation", "Ablation across environments", "Scale to larger models"],
+    risks: ["Baseline may already be tuned for this metric"],
+  };
+
+  it("accepts a valid experiment record", () => {
+    expect(() => ExperimentSchema.parse(validExperiment)).not.toThrow();
+  });
+
+  it("requires at least one full_roadmap step", () => {
+    expect(() => ExperimentSchema.parse({ ...validExperiment, full_roadmap: [] })).toThrow();
+  });
+
+  it("NewExperimentSchema omits id", () => {
+    const { id, ...rest } = validExperiment;
+    expect(() => NewExperimentSchema.parse(rest)).not.toThrow();
+  });
+});
+
+describe("ReviewSchema", () => {
+  const validReview = {
+    id: "review-001",
+    idea_id: "idea-001",
+    objections: [{ category: "feasibility" as const, objection: "No access to the compute this requires", severity: "major" as const }],
+    overall_recommendation: "weak_accept" as const,
+  };
+
+  it("accepts a valid review record", () => {
+    expect(() => ReviewSchema.parse(validReview)).not.toThrow();
+  });
+
+  it("accepts an empty objections list", () => {
+    expect(() => ReviewSchema.parse({ ...validReview, objections: [] })).not.toThrow();
+  });
+
+  it("rejects an unknown objection category", () => {
+    expect(() =>
+      ReviewSchema.parse({ ...validReview, objections: [{ category: "bogus", objection: "x", severity: "minor" }] })
+    ).toThrow();
+  });
+
+  it("rejects an unknown recommendation", () => {
+    expect(() => ReviewSchema.parse({ ...validReview, overall_recommendation: "maybe" })).toThrow();
+  });
+
+  it("NewReviewSchema omits id", () => {
+    const { id, ...rest } = validReview;
+    expect(() => NewReviewSchema.parse(rest)).not.toThrow();
   });
 });

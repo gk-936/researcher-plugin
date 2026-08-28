@@ -41,3 +41,11 @@ export function createAssumptionId(index: number): string {
 export function createEvidenceId(index: number): string {
   return `evidence-${String(index).padStart(3, "0")}`;
 }
+
+export function createExperimentId(index: number): string {
+  return `experiment-${String(index).padStart(3, "0")}`;
+}
+
+export function createReviewId(index: number): string {
+  return `review-${String(index).padStart(3, "0")}`;
+}
