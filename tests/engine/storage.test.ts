@@ -348,3 +348,131 @@ describe("ProjectStore.saveIdeaSearchEvidence / getIdeaSearchEvidence", () => {
     expect(store.getIdeaSearchEvidence(project.id, "idea-001")!.notes).toBe("second");
   });
 });
+
+describe("ProjectStore.saveIdea mutation defaults", () => {
+  it("sets mutation_depth 0 and null lineage on an original idea", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), DEFAULT_BUDGET.maxRawIdeas)!;
+    expect(idea.mutation_depth).toBe(0);
+    expect(idea.mutated_from).toBeNull();
+    expect(idea.mutation_operator).toBeNull();
+  });
+});
+
+describe("ProjectStore.saveGaps auto-derives evidence", () => {
+  it("creates one evidence entry per saved gap", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    store.saveGaps(project.id, [newGap("Gap A", { description: "method X is data-hungry", evidence_paper_ids: ["arxiv:1"], confidence: "medium" })], DEFAULT_BUDGET.maxGaps);
+    const evidence = store.getEvidence(project.id);
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]).toMatchObject({
+      claim: "method X is data-hungry",
+      evidence_paper_ids: ["arxiv:1"],
+      evidence_type: "observational",
+      confidence: "medium",
+      status: "verified",
+      source: "gap",
+    });
+  });
+});
+
+describe("ProjectStore.saveAssumptions / getAssumptions", () => {
+  it("assigns ids and round-trips", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const created = store.saveAssumptions(project.id, [
+      { assumption: "env is stationary", papers_supporting: ["arxiv:1"], papers_challenging: [], status: "assumed", remaining_question: "q" },
+    ]);
+    expect(created[0].id).toBe("assumption-001");
+    expect(store.getAssumptions(project.id)).toHaveLength(1);
+  });
+});
+
+describe("ProjectStore.rejectIdeaToGraveyard", () => {
+  it("creates a graveyard entry and marks the idea rejected", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), DEFAULT_BUDGET.maxRawIdeas)!;
+    store.updateIdeaNovelty(project.id, idea.id, "FAIL", "already done", "high");
+    store.updateIdeaSaturation(project.id, idea.id, "SATURATED", "many variants exist");
+
+    const entry = store.rejectIdeaToGraveyard(project.id, idea.id, "novelty FAIL", "try a different task");
+
+    expect(entry.idea_id).toBe(idea.id);
+    expect(entry.novelty_verdict).toBe("FAIL");
+    expect(entry.saturation).toBe("SATURATED");
+    expect(entry.mutated_into).toBeNull();
+    expect(store.getIdeas(project.id, { ids: [idea.id] })[0].status).toBe("rejected");
+    expect(store.getGraveyard(project.id)).toHaveLength(1);
+  });
+
+  it("throws if the idea has not been fully audited yet", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), DEFAULT_BUDGET.maxRawIdeas)!;
+    expect(() => store.rejectIdeaToGraveyard(project.id, idea.id, "reason", null)).toThrow();
+  });
+});
+
+describe("ProjectStore.createIdeaMutation", () => {
+  function rejectedIdea(project: { id: string }) {
+    const idea = store.saveIdea(project.id, newIdea("Q1"), DEFAULT_BUDGET.maxRawIdeas)!;
+    store.updateIdeaNovelty(project.id, idea.id, "FAIL", "already done", "high");
+    store.updateIdeaSaturation(project.id, idea.id, "SATURATED", "many variants exist");
+    store.rejectIdeaToGraveyard(project.id, idea.id, "novelty FAIL", null);
+    return idea;
+  }
+
+  it("creates a mutated idea linked to its parent and updates the graveyard entry", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const parent = rejectedIdea(project);
+
+    const result = store.createIdeaMutation(
+      project.id,
+      parent.id,
+      "CHANGE_TASK",
+      newIdea("mutated Q1"),
+      DEFAULT_BUDGET.maxMutationDepth,
+      DEFAULT_BUDGET.maxMutationsPerProject
+    );
+
+    expect(result.saved).toBe(true);
+    if (!result.saved) throw new Error("expected saved");
+    expect(result.idea.mutation_depth).toBe(1);
+    expect(result.idea.mutated_from).toBe(parent.id);
+    expect(result.idea.mutation_operator).toBe("CHANGE_TASK");
+
+    const graveyard = store.getGraveyard(project.id);
+    expect(graveyard[0].mutated_into).toBe(result.idea.id);
+  });
+
+  it("refuses a mutation once maxMutationDepth is reached", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const parent = rejectedIdea(project);
+
+    const result = store.createIdeaMutation(project.id, parent.id, "CHANGE_TASK", newIdea("Q2"), 0, DEFAULT_BUDGET.maxMutationsPerProject);
+
+    expect(result).toEqual({ saved: false, reason: "maxMutationDepth reached" });
+  });
+
+  it("refuses a mutation once maxMutationsPerProject is exhausted", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const parent = rejectedIdea(project);
+
+    const result = store.createIdeaMutation(
+      project.id,
+      parent.id,
+      "CHANGE_TASK",
+      newIdea("Q2"),
+      DEFAULT_BUDGET.maxMutationDepth,
+      0
+    );
+
+    expect(result).toEqual({ saved: false, reason: "maxMutationsPerProject budget exhausted" });
+  });
+});

@@ -18,8 +18,16 @@ import {
   type Saturation,
   type IdeaSearchEvidence,
   type Budget,
+  GraveyardEntrySchema,
+  type GraveyardEntry,
+  AssumptionLedgerEntrySchema,
+  type AssumptionLedgerEntry,
+  type NewAssumptionLedgerEntry,
+  EvidenceLedgerEntrySchema,
+  type EvidenceLedgerEntry,
+  type MutationOperator,
 } from "./schemas.js";
-import { createProjectId, createGapId, createIdeaId } from "./ids.js";
+import { createProjectId, createGapId, createIdeaId, createGraveyardEntryId, createAssumptionId, createEvidenceId } from "./ids.js";
 import { logEvent } from "./logging.js";
 
 export interface ProjectSummary {
@@ -55,6 +63,15 @@ export class ProjectStore {
   }
   private ideaSearchEvidenceFile(id: string): string {
     return join(this.projectDir(id), "idea_search_evidence.json");
+  }
+  private graveyardFile(id: string): string {
+    return join(this.projectDir(id), "graveyard.json");
+  }
+  private assumptionsFile(id: string): string {
+    return join(this.projectDir(id), "assumptions.json");
+  }
+  private evidenceFile(id: string): string {
+    return join(this.projectDir(id), "evidence.json");
   }
   private logFile(id: string): string {
     return join(this.projectDir(id), "log.jsonl");
@@ -223,6 +240,20 @@ export class ProjectStore {
     let nextIndex = existing.length + 1;
     const created = toSave.map((g) => ({ ...g, id: createGapId(nextIndex++) }));
     this.saveAllGaps(projectId, [...existing, ...created]);
+
+    const existingEvidence = this.getEvidence(projectId);
+    let nextEvidenceIndex = existingEvidence.length + 1;
+    const newEvidence: EvidenceLedgerEntry[] = created.map((g) => ({
+      id: createEvidenceId(nextEvidenceIndex++),
+      claim: g.description,
+      evidence_paper_ids: g.evidence_paper_ids,
+      evidence_type: "observational",
+      confidence: g.confidence,
+      status: "verified",
+      source: "gap",
+    }));
+    this.saveAllEvidence(projectId, [...existingEvidence, ...newEvidence]);
+
     if (!state.phases_completed.includes("gap_hunting")) {
       state.phases_completed.push("gap_hunting");
       this.saveProject(state);
@@ -261,6 +292,9 @@ export class ProjectStore {
       novelty_confidence: null,
       saturation: null,
       saturation_evidence: null,
+      mutation_depth: 0,
+      mutated_from: null,
+      mutation_operator: null,
     };
     this.saveAllIdeas(projectId, [...existing, created]);
     if (!state.phases_completed.includes("idea_generation")) {
@@ -346,5 +380,138 @@ export class ProjectStore {
 
   getIdeaSearchEvidence(projectId: string, ideaId: string): IdeaSearchEvidence | null {
     return this.getAllIdeaSearchEvidence(projectId).find((e) => e.idea_id === ideaId) ?? null;
+  }
+
+  getEvidence(projectId: string): EvidenceLedgerEntry[] {
+    if (!existsSync(this.evidenceFile(projectId))) return [];
+    const raw = JSON.parse(readFileSync(this.evidenceFile(projectId), "utf-8"));
+    return (raw as unknown[]).map((e) => EvidenceLedgerEntrySchema.parse(e));
+  }
+
+  private saveAllEvidence(projectId: string, evidence: EvidenceLedgerEntry[]): void {
+    writeFileSync(this.evidenceFile(projectId), JSON.stringify(evidence, null, 2), "utf-8");
+  }
+
+  getAllAssumptions(projectId: string): AssumptionLedgerEntry[] {
+    if (!existsSync(this.assumptionsFile(projectId))) return [];
+    const raw = JSON.parse(readFileSync(this.assumptionsFile(projectId), "utf-8"));
+    return (raw as unknown[]).map((a) => AssumptionLedgerEntrySchema.parse(a));
+  }
+
+  private saveAllAssumptions(projectId: string, assumptions: AssumptionLedgerEntry[]): void {
+    writeFileSync(this.assumptionsFile(projectId), JSON.stringify(assumptions, null, 2), "utf-8");
+  }
+
+  saveAssumptions(projectId: string, assumptions: NewAssumptionLedgerEntry[]): AssumptionLedgerEntry[] {
+    if (!this.getProject(projectId)) throw new Error(`Unknown project: ${projectId}`);
+    const existing = this.getAllAssumptions(projectId);
+    let nextIndex = existing.length + 1;
+    const created = assumptions.map((a) => ({ ...a, id: createAssumptionId(nextIndex++) }));
+    this.saveAllAssumptions(projectId, [...existing, ...created]);
+    logEvent(this.logFile(projectId), "assumptions_saved", projectId, { count: created.length });
+    return created;
+  }
+
+  getAssumptions(projectId: string): AssumptionLedgerEntry[] {
+    return this.getAllAssumptions(projectId);
+  }
+
+  getAllGraveyardEntries(projectId: string): GraveyardEntry[] {
+    if (!existsSync(this.graveyardFile(projectId))) return [];
+    const raw = JSON.parse(readFileSync(this.graveyardFile(projectId), "utf-8"));
+    return (raw as unknown[]).map((g) => GraveyardEntrySchema.parse(g));
+  }
+
+  private saveAllGraveyardEntries(projectId: string, entries: GraveyardEntry[]): void {
+    writeFileSync(this.graveyardFile(projectId), JSON.stringify(entries, null, 2), "utf-8");
+  }
+
+  getGraveyard(projectId: string): GraveyardEntry[] {
+    return this.getAllGraveyardEntries(projectId);
+  }
+
+  rejectIdeaToGraveyard(
+    projectId: string,
+    ideaId: string,
+    reasonRejected: string,
+    potentialRevivalDirection: string | null
+  ): GraveyardEntry {
+    const idea = this.getAllIdeas(projectId).find((i) => i.id === ideaId);
+    if (!idea) throw new Error(`Unknown idea: ${ideaId}`);
+    if (idea.novelty_verdict === null || idea.saturation === null) {
+      throw new Error(`Idea ${ideaId} must be fully audited before rejection`);
+    }
+    const existing = this.getAllGraveyardEntries(projectId);
+    const entry: GraveyardEntry = {
+      id: createGraveyardEntryId(existing.length + 1),
+      idea_id: ideaId,
+      research_question: idea.research_question,
+      hypothesis: idea.hypothesis,
+      reason_rejected: reasonRejected,
+      novelty_verdict: idea.novelty_verdict,
+      saturation: idea.saturation,
+      closest_prior_work: idea.closest_prior_work,
+      potential_revival_direction: potentialRevivalDirection,
+      mutated_into: null,
+      rejected_at: new Date().toISOString(),
+    };
+    this.saveAllGraveyardEntries(projectId, [...existing, entry]);
+    this.updateIdea(projectId, ideaId, { status: "rejected" });
+    logEvent(this.logFile(projectId), "idea_rejected_to_graveyard", projectId, { idea_id: ideaId });
+    return entry;
+  }
+
+  createIdeaMutation(
+    projectId: string,
+    parentIdeaId: string,
+    operator: MutationOperator,
+    content: NewIdea,
+    maxMutationDepth: number,
+    maxMutationsPerProject: number
+  ): { saved: true; idea: Idea } | { saved: false; reason: string } {
+    const state = this.getProject(projectId);
+    if (!state) throw new Error(`Unknown project: ${projectId}`);
+    const parent = this.getAllIdeas(projectId).find((i) => i.id === parentIdeaId);
+    if (!parent) throw new Error(`Unknown idea: ${parentIdeaId}`);
+    if (parent.mutation_depth >= maxMutationDepth) {
+      return { saved: false, reason: "maxMutationDepth reached" };
+    }
+    const allIdeas = this.getAllIdeas(projectId);
+    const totalMutations = allIdeas.filter((i) => i.mutation_depth > 0).length;
+    if (totalMutations >= maxMutationsPerProject) {
+      return { saved: false, reason: "maxMutationsPerProject budget exhausted" };
+    }
+    const created: Idea = {
+      ...content,
+      id: createIdeaId(allIdeas.length + 1),
+      status: "generated",
+      novelty_verdict: null,
+      novelty_evidence: null,
+      novelty_confidence: null,
+      saturation: null,
+      saturation_evidence: null,
+      mutation_depth: parent.mutation_depth + 1,
+      mutated_from: parentIdeaId,
+      mutation_operator: operator,
+    };
+    this.saveAllIdeas(projectId, [...allIdeas, created]);
+
+    const graveyard = this.getAllGraveyardEntries(projectId);
+    const idx = graveyard.findIndex((g) => g.idea_id === parentIdeaId);
+    if (idx !== -1) {
+      graveyard[idx] = { ...graveyard[idx], mutated_into: created.id };
+      this.saveAllGraveyardEntries(projectId, graveyard);
+    }
+
+    if (!state.phases_completed.includes("idea_mutation")) {
+      state.phases_completed.push("idea_mutation");
+      this.saveProject(state);
+    }
+    logEvent(this.logFile(projectId), "idea_mutation_created", projectId, {
+      parent_idea_id: parentIdeaId,
+      new_idea_id: created.id,
+      operator,
+    });
+    return { saved: true, idea: created };
   }
 }
