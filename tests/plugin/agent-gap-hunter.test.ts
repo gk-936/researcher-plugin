@@ -21,4 +21,10 @@ describe("agents/gap-hunter.md", () => {
     expect(body).toMatch(/evidence_paper_ids/);
     expect(body).toMatch(/absence/i);
   });
+
+  it("instructs populating the assumption ledger from the spec's assumptions", () => {
+    expect(body).toMatch(/save_assumptions/);
+    expect(body).toMatch(/papers_supporting/);
+    expect(body).toMatch(/papers_challenging/);
+  });
 });
