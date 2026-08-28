@@ -21,3 +21,11 @@ export function hashPaperId(title: string, year: number | null): string {
   const hash = createHash("sha1").update(`${normalized}:${year ?? ""}`).digest("hex").slice(0, 16);
   return `hash:${hash}`;
 }
+
+export function createGapId(index: number): string {
+  return `gap-${String(index).padStart(3, "0")}`;
+}
+
+export function createIdeaId(index: number): string {
+  return `idea-${String(index).padStart(3, "0")}`;
+}

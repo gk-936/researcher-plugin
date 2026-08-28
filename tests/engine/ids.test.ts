@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { slugify, createProjectId, hashPaperId } from "../../src/engine/ids.js";
+import { slugify, createProjectId, hashPaperId, createGapId, createIdeaId } from "../../src/engine/ids.js";
 
 describe("slugify", () => {
   it("lowercases, strips punctuation, and joins with hyphens", () => {
@@ -43,5 +43,19 @@ describe("hashPaperId", () => {
 
   it("starts with 'hash:'", () => {
     expect(hashPaperId("Title", null)).toMatch(/^hash:[0-9a-f]{16}$/);
+  });
+});
+
+describe("createGapId", () => {
+  it("zero-pads to 3 digits", () => {
+    expect(createGapId(1)).toBe("gap-001");
+    expect(createGapId(42)).toBe("gap-042");
+  });
+});
+
+describe("createIdeaId", () => {
+  it("zero-pads to 3 digits", () => {
+    expect(createIdeaId(1)).toBe("idea-001");
+    expect(createIdeaId(42)).toBe("idea-042");
   });
 });
