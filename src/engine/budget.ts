@@ -8,6 +8,9 @@ export const DEFAULT_BUDGET: Budget = {
   cacheTtlDays: 7,
   requestTimeoutMs: 15000,
   arxivMinDelayMs: 3000,
+  maxGaps: 8,
+  maxRawIdeas: 10,
+  maxIdeasAudited: 4,
 };
 
 export function loadBudget(configPath: string): Budget {

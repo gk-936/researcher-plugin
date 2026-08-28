@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { ResearchSpecSchema, PaperSchema, BudgetSchema, ProjectStateSchema, toCompactPaper, type Paper } from "../../src/engine/schemas.js";
+import {
+  ResearchSpecSchema,
+  PaperSchema,
+  BudgetSchema,
+  ProjectStateSchema,
+  toCompactPaper,
+  type Paper,
+  GapSchema,
+  IdeaSchema,
+  IdeaSearchEvidenceSchema,
+  NewGapSchema,
+  NewIdeaSchema,
+} from "../../src/engine/schemas.js";
 
 const validSpec = {
   problem: "How can model-based RL become more sample efficient?",
@@ -82,6 +94,9 @@ describe("BudgetSchema", () => {
       cacheTtlDays: 7,
       requestTimeoutMs: 15000,
       arxivMinDelayMs: 3000,
+      maxGaps: 8,
+      maxRawIdeas: 10,
+      maxIdeasAudited: 4,
     };
     expect(() => BudgetSchema.parse(budget)).not.toThrow();
   });
@@ -103,8 +118,106 @@ describe("ProjectStateSchema", () => {
         cacheTtlDays: 7,
         requestTimeoutMs: 15000,
         arxivMinDelayMs: 3000,
+        maxGaps: 8,
+        maxRawIdeas: 10,
+        maxIdeasAudited: 4,
       },
     };
     expect(() => ProjectStateSchema.parse(state)).not.toThrow();
+  });
+});
+
+const validGap = {
+  id: "gap-001",
+  title: "No efficient sparse-reward baseline exists",
+  category: "efficiency gap",
+  description: "Retained work assumes dense reward.",
+  evidence_paper_ids: ["arxiv:1234.5678"],
+  what_has_been_attempted: "Dense-reward model-based RL.",
+  what_remains_unresolved: "Sparse-reward sample efficiency.",
+  why_it_matters: "Sparse reward is the common real-world case.",
+  why_it_is_difficult: "Credit assignment is harder without dense signal.",
+  potential_opportunity: "A sparse-reward-native world model.",
+  confidence: "medium" as const,
+};
+
+describe("GapSchema", () => {
+  it("accepts a fully-formed gap", () => {
+    expect(() => GapSchema.parse(validGap)).not.toThrow();
+  });
+
+  it("rejects a gap with no evidence paper ids", () => {
+    expect(() => GapSchema.parse({ ...validGap, evidence_paper_ids: [] })).toThrow();
+  });
+});
+
+describe("NewGapSchema", () => {
+  it("accepts a gap without an id", () => {
+    const { id: _drop, ...withoutId } = validGap;
+    expect(() => NewGapSchema.parse(withoutId)).not.toThrow();
+  });
+});
+
+const validIdea = {
+  id: "idea-001",
+  gap_id: "gap-001",
+  strategy: "REMOVE_ASSUMPTION",
+  research_question: "Can sparse-reward sample efficiency improve without dense shaping?",
+  hypothesis: "A learned intrinsic signal substitutes for dense reward.",
+  motivation: "Dense-reward assumption blocks real-world deployment.",
+  mechanism: "Train an auxiliary predictor as an intrinsic reward.",
+  expected_contribution: "A sparse-reward-native sample efficiency gain.",
+  closest_prior_work: ["arxiv:1234.5678"],
+  why_not_solved: "Prior work assumes reward density.",
+  why_now: "Auxiliary predictors are now cheap to train.",
+  status: "generated" as const,
+  novelty_verdict: null,
+  novelty_evidence: null,
+  novelty_confidence: null,
+  saturation: null,
+  saturation_evidence: null,
+};
+
+describe("IdeaSchema", () => {
+  it("accepts a freshly-generated idea with null audit fields", () => {
+    expect(() => IdeaSchema.parse(validIdea)).not.toThrow();
+  });
+
+  it("accepts an audited idea", () => {
+    expect(() =>
+      IdeaSchema.parse({
+        ...validIdea,
+        status: "audited",
+        novelty_verdict: "PASS",
+        novelty_evidence: "No close prior work found.",
+        novelty_confidence: "high",
+        saturation: "UNEXPLORED",
+        saturation_evidence: "No matching papers in the retained set.",
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects an invalid saturation value", () => {
+    expect(() => IdeaSchema.parse({ ...validIdea, saturation: "MADE_UP" })).toThrow();
+  });
+});
+
+describe("NewIdeaSchema", () => {
+  it("accepts the generator-owned fields only", () => {
+    const { id: _id, status: _status, novelty_verdict: _nv, novelty_evidence: _ne, novelty_confidence: _nc, saturation: _s, saturation_evidence: _se, ...generatorOwned } = validIdea;
+    expect(() => NewIdeaSchema.parse(generatorOwned)).not.toThrow();
+  });
+});
+
+describe("IdeaSearchEvidenceSchema", () => {
+  it("accepts a search evidence record", () => {
+    expect(() =>
+      IdeaSearchEvidenceSchema.parse({
+        idea_id: "idea-001",
+        queries: ["sparse reward intrinsic motivation sample efficiency"],
+        papers: [{ id: "arxiv:1234.5678", title: "A Paper", year: 2024 }],
+        notes: "Closest match trains a fixed intrinsic bonus, not a learned one.",
+      })
+    ).not.toThrow();
   });
 });

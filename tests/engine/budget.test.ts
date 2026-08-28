@@ -32,3 +32,11 @@ describe("loadBudget", () => {
     expect(() => loadBudget(configPath)).toThrow();
   });
 });
+
+describe("DEFAULT_BUDGET", () => {
+  it("includes the Phase 2 gap/idea budget fields", () => {
+    expect(DEFAULT_BUDGET.maxGaps).toBe(8);
+    expect(DEFAULT_BUDGET.maxRawIdeas).toBe(10);
+    expect(DEFAULT_BUDGET.maxIdeasAudited).toBe(4);
+  });
+});
