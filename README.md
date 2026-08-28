@@ -1,6 +1,6 @@
-# Research Agent (Phase 1)
+# Research Agent (Phase 2)
 
-An autonomous research ideation Claude Code plugin. Give it a research problem statement; it analyzes the problem and discovers relevant literature from arXiv and Semantic Scholar. This is **Phase 1** of a larger design — see [Limitations](#limitations) for what's not built yet.
+An autonomous research ideation Claude Code plugin. Give it a research problem statement; it analyzes the problem, discovers relevant literature from arXiv and Semantic Scholar, hunts for research gaps grounded in that literature, generates candidate research ideas, and adversarially audits each shortlisted idea for novelty and saturation. This is **Phase 2** of a larger design — see [Limitations](#limitations) for what's not built yet.
 
 ## Installation
 
@@ -31,7 +31,10 @@ The MCP server reads `research-data/config.json` (relative to the data directory
   "maxRetainedPapers": 20,
   "cacheTtlDays": 7,
   "requestTimeoutMs": 15000,
-  "arxivMinDelayMs": 3000
+  "arxivMinDelayMs": 3000,
+  "maxGaps": 8,
+  "maxRawIdeas": 10,
+  "maxIdeasAudited": 4
 }
 ```
 
@@ -41,32 +44,39 @@ Research project data and the on-disk cache live under `${CLAUDE_PLUGIN_DATA}/re
 
 | Command | Status | What it does |
 |---|---|---|
-| `/research <problem>` | Implemented | Runs the full Phase 1 pipeline: creates a project, analyzes the problem, discovers and retains literature. |
+| `/research <problem>` | Implemented | Runs the full pipeline: creates a project, analyzes the problem, discovers literature, hunts gaps, generates ideas, and audits each shortlisted idea for novelty and saturation. |
 | `/literature [project-id]` | Implemented | Shows the retained papers and literature summary for a project. |
-| `/report [project-id]` | Implemented (partial) | Renders a report from whatever has run so far; explicitly marks unimplemented sections rather than fabricating them. |
-| `/gaps`, `/ideas`, `/audit`, `/experiment`, `/review` | **Not implemented in this build** | Arrive in Phases 2-4 alongside the agents that back them (gap-hunter, idea-generator, novelty-auditor, saturation-detector, mutation engine, experiment-designer, reviewer). |
+| `/gaps [project-id]` | Implemented | Shows the research gaps found so far, with their evidence. |
+| `/ideas [project-id]` | Implemented | Shows candidate research ideas with their novelty and saturation verdicts. |
+| `/report [project-id]` | Implemented | Renders a full report including gaps and ranked ideas; explicitly marks the remaining unimplemented sections rather than fabricating them. |
+| `/audit`, `/experiment`, `/review` | **Not implemented in this build** | Arrive in Phases 3-4 alongside the agents that back them (mutation engine, experiment-designer, reviewer). |
 
 ## Architecture
 
 ```
 Claude Code plugin
   commands/research.md  ──fork──▶  agents/research-orchestrator.md
-  commands/literature.md, commands/report.md  (inline, read project state)
+  commands/literature.md, commands/gaps.md, commands/ideas.md, commands/report.md  (inline, read project state)
                                         │
                         Task-delegates to:
                         agents/problem-analyzer.md
                         agents/literature-scout.md
+                        agents/gap-hunter.md
+                        agents/idea-generator.md
+                        agents/novelty-auditor.md      (per shortlisted idea)
+                        agents/saturation-detector.md  (per shortlisted idea, after novelty-auditor)
                                         │
-                        both call MCP tools ──▶
+                        all call MCP tools ──▶
                                         │
-research-server (src/mcp-server) — 10 tools, thin wrappers over:
+research-server (src/mcp-server) — 19 tools, thin wrappers over:
                                         │
 engine (src/engine) — runtime-independent: schemas, storage (JSON files),
   budget, cache, dedupe, retrieval (arXiv + Semantic Scholar providers),
   search orchestration
                                         │
-research-data/ — project.json, spec.json, papers.json,
-  literature_summary.json, log.jsonl per project; on-disk query cache
+research-data/ — project.json, spec.json, papers.json, gaps.json, ideas.json,
+  idea_search_evidence.json, literature_summary.json, log.jsonl per project;
+  on-disk query cache
 ```
 
 `src/engine` has no dependency on `@modelcontextprotocol/sdk` or anything Claude Code-specific, so it can be reused by a different runtime later without rewriting the research logic.
@@ -78,17 +88,20 @@ research-data/ — project.json, spec.json, papers.json,
 more sample efficient in sparse-reward environments?
 ```
 
-The orchestrator creates a project, delegates problem analysis (domain, keywords, synonyms, objectives, assumptions), then delegates literature discovery (query expansion, arXiv + Semantic Scholar search, relevance filtering, retention), printing a short progress checklist. Follow up with `/literature` to see the retained papers, or `/report` for the current partial report.
+The orchestrator creates a project, delegates problem analysis (domain, keywords, synonyms, objectives, assumptions), literature discovery (query expansion, arXiv + Semantic Scholar search, relevance filtering, retention), gap hunting (evidence-grounded gaps from the retained literature), idea generation (candidate ideas across distinct strategies), and then, for a shortlisted subset, a novelty audit and a saturation classification per idea — printing a short progress checklist throughout. Follow up with `/gaps`, `/ideas`, `/literature`, or `/report`.
 
 ## Limitations
 
 - Only arXiv and Semantic Scholar are searched, both keyless — no OpenAlex, Crossref, ACM/IEEE, or full-text/PDF retrieval.
-- No citation graph, embeddings/vector retrieval, gap hunting, idea generation, novelty auditing, saturation detection, idea mutation, assumption/evidence ledgers, research graveyard, experiment design, or reviewer simulation. These are explicitly out of scope for Phase 1 (see the design spec) and are never simulated by the agents in this build.
+- No citation graph, embeddings/vector retrieval, idea mutation, assumption/evidence ledgers, research graveyard, experiment design, or reviewer simulation. These are explicitly out of scope for Phase 2 (see the design spec) and are never simulated by the agents in this build.
 - Storage is flat JSON files, not a database — fine at the scale of dozens of papers per project, not built for large corpora.
 - `source_quality` is a coarse heuristic (venue known vs. not), not a real bibliometric signal.
 - Search queries within one `search_papers` call run sequentially (parallel across the two providers per query, but not across queries), and neither the on-disk cache nor the JSONL log validates its own file contents against corruption — acceptable at Phase 1's scale, worth hardening before higher-volume use.
 - `search_papers`'s response reports query-level truncation (`queries_truncated`) but not candidate-level truncation when a project's `maxCandidatesPerProject` cap drops newly-discovered (not-yet-retained) papers — the cap never evicts already-retained papers, but a dropped new candidate currently has no signal in the response.
 - Observed live: under a real, near-budget run (12 searches), `literature-scout` completed search and retention but skipped writing per-paper relevance notes and the literature summary — likely a turn-budget effect (`maxTurns: 20`) on complex queries, not a code defect. If you see this, a smaller/sharper query set or a higher `maxTurns` may help.
+- `novelty-auditor`'s prior-art searches share the same `maxDiscoverySearchesPerProject` budget as literature discovery, not a separate pool — a literature-heavy run can leave little search budget for novelty audits; `get_project_state`'s `searches_remaining` surfaces this.
+- Saturation classification uses paper counts, publication recency, and title/abstract overlap only — there is no citation graph in this build, so citation-activity signal (a stronger crowdedness indicator) is never used, and agents are instructed to say so rather than omit it silently.
+- "Ranked output" is a presentation-level ordering in `/report` (PASS before WEAK before FAIL, then by saturation), not a scored/weighted ranking algorithm.
 
 ## Development
 
@@ -101,5 +114,7 @@ npm run dev:mcp    # runs the MCP server directly over stdio, for manual testing
 
 ## Spec and Plan
 
-- Design: `docs/superpowers/specs/2026-08-27-research-agent-phase1-design.md`
-- Implementation plan: `docs/superpowers/plans/2026-08-27-research-agent-phase1.md`
+- Phase 1 design: `docs/superpowers/specs/2026-08-27-research-agent-phase1-design.md`
+- Phase 1 implementation plan: `docs/superpowers/plans/2026-08-27-research-agent-phase1.md`
+- Phase 2 design: `docs/superpowers/specs/2026-08-28-research-agent-phase2-design.md`
+- Phase 2 implementation plan: `docs/superpowers/plans/2026-08-28-research-agent-phase2.md`
