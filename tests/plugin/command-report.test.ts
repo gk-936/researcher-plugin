@@ -57,4 +57,19 @@ describe("commands/report.md", () => {
     expect(notYetAvailableLine).not.toMatch(/Evidence\/Assumption Ledgers/);
     expect(notYetAvailableLine).not.toMatch(/Research Graveyard/);
   });
+
+  it("covers the newly-implemented Phase 4 sections and shrinks the not-yet-available list to just the two permanent exclusions", () => {
+    expect(body).toContain("Minimal Validation Experiment");
+    expect(body).toContain("Full Experimental Roadmap");
+    expect(body).toContain("Potential Reviewer Objections");
+    expect(body).toMatch(/get_experiments/);
+    expect(body).toMatch(/get_reviews/);
+    const notYetAvailableLine = body.split("\n").find((l) => l.includes("listing, verbatim"));
+    expect(notYetAvailableLine).toBeDefined();
+    expect(notYetAvailableLine).toContain("Citation Graph");
+    expect(notYetAvailableLine).toContain("Vector/Embedding Retrieval");
+    expect(notYetAvailableLine).not.toMatch(/Minimal Validation Experiment/);
+    expect(notYetAvailableLine).not.toMatch(/Full Experimental Roadmap/);
+    expect(notYetAvailableLine).not.toMatch(/Potential Reviewer Objections/);
+  });
 });
