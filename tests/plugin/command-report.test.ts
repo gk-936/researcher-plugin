@@ -45,4 +45,16 @@ describe("commands/report.md", () => {
     expect(body).toMatch(/get_problem_spec/);
     expect(body).toMatch(/get_literature_summary/);
   });
+
+  it("covers the newly-implemented Phase 3A sections and restricts the not-yet-available list", () => {
+    expect(body).toContain("Saturated / Rejected Directions");
+    expect(body).toContain("Mutated Directions");
+    expect(body).toMatch(/get_graveyard/);
+    expect(body).toMatch(/get_assumptions/);
+    const notYetAvailableLine = body.split("\n").find((l) => l.includes("listing, verbatim"));
+    expect(notYetAvailableLine).toBeDefined();
+    expect(notYetAvailableLine).not.toMatch(/Mutated Directions/);
+    expect(notYetAvailableLine).not.toMatch(/Evidence\/Assumption Ledgers/);
+    expect(notYetAvailableLine).not.toMatch(/Research Graveyard/);
+  });
 });
