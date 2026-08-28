@@ -8,6 +8,8 @@ import {
   NoveltyVerdictSchema,
   NoveltyConfidenceSchema,
   SaturationSchema,
+  NewAssumptionLedgerEntrySchema,
+  MutationOperatorSchema,
   type Budget,
 } from "../engine/schemas.js";
 import type { ProjectStore } from "../engine/storage.js";
@@ -219,4 +221,62 @@ export function getIdeaSearchEvidence(ctx: ToolContext, input: z.infer<typeof ge
   const evidence = ctx.store.getIdeaSearchEvidence(input.project_id, input.idea_id);
   if (!evidence) return { error: "No search evidence saved for this idea." };
   return evidence;
+}
+
+export const rejectIdeaToGraveyardInput = z
+  .object({
+    project_id: z.string(),
+    idea_id: z.string(),
+    reason_rejected: z.string().min(1),
+    potential_revival_direction: z.string().optional(),
+  })
+  .strict();
+export function rejectIdeaToGraveyard(ctx: ToolContext, input: z.infer<typeof rejectIdeaToGraveyardInput>) {
+  return ctx.store.rejectIdeaToGraveyard(
+    input.project_id,
+    input.idea_id,
+    input.reason_rejected,
+    input.potential_revival_direction ?? null
+  );
+}
+
+export const createIdeaMutationInput = z
+  .object({
+    project_id: z.string(),
+    parent_idea_id: z.string(),
+    operator: MutationOperatorSchema,
+    idea: NewIdeaSchema,
+  })
+  .strict();
+export function createIdeaMutationTool(ctx: ToolContext, input: z.infer<typeof createIdeaMutationInput>) {
+  return ctx.store.createIdeaMutation(
+    input.project_id,
+    input.parent_idea_id,
+    input.operator,
+    input.idea,
+    ctx.budget.maxMutationDepth,
+    ctx.budget.maxMutationsPerProject
+  );
+}
+
+export const saveAssumptionsInput = z
+  .object({ project_id: z.string(), assumptions: z.array(NewAssumptionLedgerEntrySchema).min(1) })
+  .strict();
+export function saveAssumptions(ctx: ToolContext, input: z.infer<typeof saveAssumptionsInput>) {
+  return { assumptions: ctx.store.saveAssumptions(input.project_id, input.assumptions) };
+}
+
+export const getAssumptionsInput = z.object({ project_id: z.string() }).strict();
+export function getAssumptions(ctx: ToolContext, input: z.infer<typeof getAssumptionsInput>) {
+  return { assumptions: ctx.store.getAssumptions(input.project_id) };
+}
+
+export const getEvidenceInput = z.object({ project_id: z.string() }).strict();
+export function getEvidence(ctx: ToolContext, input: z.infer<typeof getEvidenceInput>) {
+  return { evidence: ctx.store.getEvidence(input.project_id) };
+}
+
+export const getGraveyardInput = z.object({ project_id: z.string() }).strict();
+export function getGraveyard(ctx: ToolContext, input: z.infer<typeof getGraveyardInput>) {
+  return { graveyard: ctx.store.getGraveyard(input.project_id) };
 }

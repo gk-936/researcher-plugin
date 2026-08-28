@@ -281,3 +281,78 @@ describe("saveIdeaSearchEvidence / getIdeaSearchEvidence", () => {
     });
   });
 });
+
+function baseIdeaInput() {
+  return {
+    gap_id: null,
+    strategy: "REMOVE_ASSUMPTION",
+    research_question: "q",
+    hypothesis: "h",
+    motivation: "m",
+    mechanism: "mech",
+    expected_contribution: "c",
+    closest_prior_work: [],
+    why_not_solved: "w",
+    why_now: "n",
+  };
+}
+
+describe("rejectIdeaToGraveyard / createIdeaMutation", () => {
+  it("rejects a fully-audited idea and creates a mutation for it", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    const saved = tools.saveIdea(ctx, { project_id: created.project_id, idea: baseIdeaInput() });
+    if (!saved.saved) throw new Error("expected saved");
+    tools.updateIdeaNovelty(ctx, {
+      project_id: created.project_id,
+      idea_id: saved.idea.id,
+      novelty_verdict: "FAIL",
+      novelty_evidence: "already done",
+      novelty_confidence: "high",
+    });
+    tools.updateIdeaSaturation(ctx, {
+      project_id: created.project_id,
+      idea_id: saved.idea.id,
+      saturation: "SATURATED",
+      saturation_evidence: "many variants",
+    });
+
+    const rejected = tools.rejectIdeaToGraveyard(ctx, {
+      project_id: created.project_id,
+      idea_id: saved.idea.id,
+      reason_rejected: "novelty FAIL",
+    });
+    expect(rejected.idea_id).toBe(saved.idea.id);
+
+    const mutation = tools.createIdeaMutationTool(ctx, {
+      project_id: created.project_id,
+      parent_idea_id: saved.idea.id,
+      operator: "CHANGE_TASK",
+      idea: baseIdeaInput(),
+    });
+    expect(mutation.saved).toBe(true);
+  });
+});
+
+describe("saveAssumptions / getAssumptions", () => {
+  it("saves and reads back", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    tools.saveAssumptions(ctx, {
+      project_id: created.project_id,
+      assumptions: [
+        { assumption: "env is stationary", papers_supporting: [], papers_challenging: [], status: "assumed", remaining_question: "q" },
+      ],
+    });
+    expect(tools.getAssumptions(ctx, { project_id: created.project_id }).assumptions).toHaveLength(1);
+  });
+});
+
+describe("getEvidence / getGraveyard", () => {
+  it("returns empty arrays for a fresh project", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    expect(tools.getEvidence(ctx, { project_id: created.project_id }).evidence).toEqual([]);
+    expect(tools.getGraveyard(ctx, { project_id: created.project_id }).graveyard).toEqual([]);
+  });
+});

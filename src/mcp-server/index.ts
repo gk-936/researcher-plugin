@@ -229,5 +229,71 @@ server.registerTool(
   async (input) => respond(tools.getIdeaSearchEvidence(ctx, input))
 );
 
+server.registerTool(
+  "reject_idea_to_graveyard",
+  {
+    title: "Reject Idea To Graveyard",
+    description: "Reject a fully-audited idea (novelty FAIL or saturation SATURATED) to the research graveyard, marking it rejected.",
+    inputSchema: tools.rejectIdeaToGraveyardInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  async (input) => respond(tools.rejectIdeaToGraveyard(ctx, input))
+);
+
+server.registerTool(
+  "create_idea_mutation",
+  {
+    title: "Create Idea Mutation",
+    description: "Create one mutated idea from a rejected parent using a named mutation operator, within the project's mutation-depth and total-mutation budgets.",
+    inputSchema: tools.createIdeaMutationInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  async (input) => respond(tools.createIdeaMutationTool(ctx, input))
+);
+
+server.registerTool(
+  "save_assumptions",
+  {
+    title: "Save Assumption Ledger Entries",
+    description: "Save a batch of structured assumption-ledger entries for a project.",
+    inputSchema: tools.saveAssumptionsInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  async (input) => respond(tools.saveAssumptions(ctx, input))
+);
+
+server.registerTool(
+  "get_assumptions",
+  {
+    title: "Get Assumption Ledger",
+    description: "Get the assumption-ledger entries saved for a project.",
+    inputSchema: tools.getAssumptionsInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getAssumptions(ctx, input))
+);
+
+server.registerTool(
+  "get_evidence",
+  {
+    title: "Get Evidence Ledger",
+    description: "Get the evidence-ledger entries for a project (currently derived automatically from saved gaps).",
+    inputSchema: tools.getEvidenceInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getEvidence(ctx, input))
+);
+
+server.registerTool(
+  "get_graveyard",
+  {
+    title: "Get Research Graveyard",
+    description: "Get the rejected-idea graveyard entries for a project.",
+    inputSchema: tools.getGraveyardInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getGraveyard(ctx, input))
+);
+
 const transport = new StdioServerTransport();
 await server.connect(transport);
