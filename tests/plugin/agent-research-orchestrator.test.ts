@@ -41,10 +41,9 @@ describe("agents/research-orchestrator.md", () => {
     expect(body).toMatch(/null/);
   });
 
-  it("shrinks the not-implemented disclosure to the Phase 3/4 boundary", () => {
+  it("shrinks the not-implemented disclosure to the permanent-exclusion boundary", () => {
     expect(body).toMatch(/mutation/i);
     expect(body).toMatch(/citation graph/i);
-    expect(body).toMatch(/reviewer simulation/i);
   });
 
   it("instructs the rejection rule and delegates mutation for FAIL/SATURATED ideas", () => {
@@ -55,6 +54,13 @@ describe("agents/research-orchestrator.md", () => {
   });
 
   it("has maxTurns increased for the extended pipeline", () => {
-    expect(data.maxTurns).toBeGreaterThan(80);
+    expect(data.maxTurns).toBeGreaterThan(150);
+  });
+
+  it("instructs selecting top PASS ideas by maxIdeasEvaluated and delegating experiment-designer/reviewer", () => {
+    expect(body).toMatch(/maxIdeasEvaluated/);
+    expect(body).toMatch(/experiment-designer/);
+    expect(body).toMatch(/reviewer/);
+    expect(body).toMatch(/novelty_verdict.*PASS|PASS.*novelty_verdict/s);
   });
 });
