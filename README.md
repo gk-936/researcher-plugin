@@ -1,6 +1,6 @@
-# Research Agent (Phase 3A)
+# Research Agent (Phase 4)
 
-An autonomous research ideation Claude Code plugin. Give it a research problem statement; it analyzes the problem, discovers relevant literature from arXiv and Semantic Scholar, hunts for research gaps grounded in that literature, generates candidate research ideas, adversarially audits each shortlisted idea for novelty and saturation, rejects ideas that fail that audit to a research graveyard, and mutates rejected ideas into new candidates along a targeted operator before re-auditing them. This is **Phase 3A** of a larger design — see [Limitations](#limitations) for what's not built yet.
+An autonomous research ideation Claude Code plugin. Give it a research problem statement; it analyzes the problem, discovers relevant literature from arXiv and Semantic Scholar, hunts for research gaps grounded in that literature, generates candidate research ideas, adversarially audits each shortlisted idea for novelty and saturation, rejects ideas that fail that audit to a research graveyard, mutates rejected ideas into new candidates along a targeted operator before re-auditing them, and — for the top surviving ideas — proposes a minimal validation experiment plus a full experimental roadmap and simulates an adversarial reviewer pass. This is **Phase 4**, the final phase of this design — see [Limitations](#limitations) for what remains permanently out of scope.
 
 ## Installation
 
@@ -34,7 +34,10 @@ The MCP server reads `research-data/config.json` (relative to the data directory
   "arxivMinDelayMs": 3000,
   "maxGaps": 8,
   "maxRawIdeas": 10,
-  "maxIdeasAudited": 4
+  "maxIdeasAudited": 4,
+  "maxMutationDepth": 2,
+  "maxMutationsPerProject": 3,
+  "maxIdeasEvaluated": 3
 }
 ```
 
@@ -44,12 +47,13 @@ Research project data and the on-disk cache live under `${CLAUDE_PLUGIN_DATA}/re
 
 | Command | Status | What it does |
 |---|---|---|
-| `/research <problem>` | Implemented | Runs the full pipeline: creates a project, analyzes the problem, discovers literature, hunts gaps, generates ideas, audits each shortlisted idea for novelty and saturation, rejects FAIL/SATURATED ideas to the graveyard, and mutates each rejected idea once (within budget) before re-auditing the mutation. |
+| `/research <problem>` | Implemented | Runs the full pipeline: creates a project, analyzes the problem, discovers literature, hunts gaps, generates ideas, audits each shortlisted idea for novelty and saturation, rejects FAIL/SATURATED ideas to the graveyard, mutates each rejected idea once (within budget) before re-auditing the mutation, then designs an experiment and simulates a review for the top `maxIdeasEvaluated` PASS-verdict ideas. |
 | `/literature [project-id]` | Implemented | Shows the retained papers and literature summary for a project. |
 | `/gaps [project-id]` | Implemented | Shows the research gaps found so far, with their evidence. |
 | `/ideas [project-id]` | Implemented | Shows candidate research ideas with their novelty and saturation verdicts. |
-| `/report [project-id]` | Implemented | Renders a full report including gaps, ranked active ideas, rejected/saturated directions, and mutated directions; explicitly marks the remaining unimplemented sections rather than fabricating them. |
-| `/experiment`, `/review` | **Not implemented in this build** | Arrive in Phase 4 alongside the agents that back them (experiment-designer, reviewer). |
+| `/report [project-id]` | Implemented | Renders a full report including gaps, ranked active ideas, rejected/saturated directions, mutated directions, experiment designs, and reviewer objections; explicitly marks the remaining unimplemented sections rather than fabricating them. |
+| `/experiment [project-id] [idea-id]` | Implemented | Shows the minimal validation experiment, full roadmap, and risks for evaluated ideas. |
+| `/review [project-id] [idea-id]` | Implemented | Shows the simulated reviewer's objections and recommendation for evaluated ideas. |
 
 ## Architecture
 
@@ -66,10 +70,12 @@ Claude Code plugin
                         agents/novelty-auditor.md      (per shortlisted idea)
                         agents/saturation-detector.md  (per shortlisted idea, after novelty-auditor)
                         agents/idea-mutator.md         (per rejected idea, within mutation budget)
+                        agents/experiment-designer.md  (per top-N PASS idea, after the mutation loop)
+                        agents/reviewer.md              (per top-N PASS idea, after experiment-designer)
                                         │
                         all call MCP tools ──▶
                                         │
-research-server (src/mcp-server) — 25 tools, thin wrappers over:
+research-server (src/mcp-server) — 31 tools, thin wrappers over:
                                         │
 engine (src/engine) — runtime-independent: schemas, storage (JSON files),
   budget, cache, dedupe, retrieval (arXiv + Semantic Scholar providers),
@@ -77,7 +83,8 @@ engine (src/engine) — runtime-independent: schemas, storage (JSON files),
                                         │
 research-data/ — project.json, spec.json, papers.json, gaps.json, ideas.json,
   idea_search_evidence.json, literature_summary.json, graveyard.json,
-  assumptions.json, evidence.json, log.jsonl per project; on-disk query cache
+  assumptions.json, evidence.json, experiments.json, reviews.json, log.jsonl
+  per project; on-disk query cache
 ```
 
 `src/engine` has no dependency on `@modelcontextprotocol/sdk` or anything Claude Code-specific, so it can be reused by a different runtime later without rewriting the research logic.
@@ -89,13 +96,14 @@ research-data/ — project.json, spec.json, papers.json, gaps.json, ideas.json,
 more sample efficient in sparse-reward environments?
 ```
 
-The orchestrator creates a project, delegates problem analysis (domain, keywords, synonyms, objectives, assumptions), literature discovery (query expansion, arXiv + Semantic Scholar search, relevance filtering, retention), gap hunting (evidence-grounded gaps from the retained literature, plus assumption-ledger entries), idea generation (candidate ideas across distinct strategies), and then, for a shortlisted subset, a novelty audit and a saturation classification per idea. Any idea whose `novelty_verdict` is `FAIL` or whose `saturation` is `SATURATED` is rejected to the research graveyard and given one bounded mutation attempt, with the mutation re-audited exactly like an original idea — printing a short progress checklist throughout. Follow up with `/gaps`, `/ideas`, `/literature`, or `/report`.
+The orchestrator creates a project, delegates problem analysis (domain, keywords, synonyms, objectives, assumptions), literature discovery (query expansion, arXiv + Semantic Scholar search, relevance filtering, retention), gap hunting (evidence-grounded gaps from the retained literature, plus assumption-ledger entries), idea generation (candidate ideas across distinct strategies), and then, for a shortlisted subset, a novelty audit and a saturation classification per idea. Any idea whose `novelty_verdict` is `FAIL` or whose `saturation` is `SATURATED` is rejected to the research graveyard and given one bounded mutation attempt, with the mutation re-audited exactly like an original idea. Finally, the top `maxIdeasEvaluated` surviving `PASS`-verdict ideas each get a minimal validation experiment design and a simulated adversarial review — printing a short progress checklist throughout. Follow up with `/gaps`, `/ideas`, `/literature`, `/report`, `/experiment`, or `/review`.
 
 ## Limitations
 
 - Only arXiv and Semantic Scholar are searched, both keyless — no OpenAlex, Crossref, ACM/IEEE, or full-text/PDF retrieval.
-- No citation graph, embeddings/vector retrieval, experiment design, or reviewer simulation. These are explicitly out of scope for Phase 3A (see the design spec) and are never simulated by the agents in this build.
+- No citation graph or embeddings/vector retrieval — these are permanently out of scope for the phased roadmap (see the design specs), not deferred to a future phase.
 - The evidence ledger is currently sourced only from gaps (auto-derived per saved gap), not from novelty-audit findings — this is a deliberate MVP scope cut documented in the Phase 3A design spec, not a bug.
+- Only the top `maxIdeasEvaluated` `PASS`-verdict ideas get an experiment design and review per `/research` run — `WEAK`-verdict ideas and ideas past the cap are never evaluated, by design (see the Phase 4 design spec for the eligibility rule).
 - Storage is flat JSON files, not a database — fine at the scale of dozens of papers per project, not built for large corpora.
 - `source_quality` is a coarse heuristic (venue known vs. not), not a real bibliometric signal.
 - Search queries within one `search_papers` call run sequentially (parallel across the two providers per query, but not across queries), and neither the on-disk cache nor the JSONL log validates its own file contents against corruption — acceptable at Phase 1's scale, worth hardening before higher-volume use.
@@ -122,3 +130,5 @@ npm run dev:mcp    # runs the MCP server directly over stdio, for manual testing
 - Phase 2 implementation plan: `docs/superpowers/plans/2026-08-28-research-agent-phase2.md`
 - Phase 3A design: `docs/superpowers/specs/2026-08-28-research-agent-phase3a-design.md`
 - Phase 3A implementation plan: `docs/superpowers/plans/2026-08-28-research-agent-phase3a.md`
+- Phase 4 design: `docs/superpowers/specs/2026-08-28-research-agent-phase4-design.md`
+- Phase 4 implementation plan: `docs/superpowers/plans/2026-08-28-research-agent-phase4.md`
