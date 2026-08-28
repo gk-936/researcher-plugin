@@ -18,6 +18,8 @@ After editing plugin files (agents, commands, skills), run `/reload-plugins` ins
 
 To validate the plugin structure independently: `claude plugin validate .`
 
+**Testing gotcha:** if you invoke `claude --plugin-dir` from the *same* directory as the plugin itself (i.e. your shell's cwd equals the plugin root), Claude Code treats the plugin's `.mcp.json` as a project-level config rather than a plugin-bundled one, so `${CLAUDE_PLUGIN_ROOT}`/`${CLAUDE_PLUGIN_DATA}` never get substituted and the research-server MCP connection fails (`CONNECTION_CLOSED`). Run `claude --plugin-dir /path/to/researcher-plugin` from a *different* working directory (any other project folder) to avoid this. In non-interactive (`-p`) sessions, invoke the command by its full namespaced form (`/researcher:research ...`) — the bare `/research` isn't reliably recognized outside an interactive session.
+
 ## Configuration
 
 The MCP server reads `research-data/config.json` (relative to the data directory) for budget overrides. Any subset of these fields may be set; omitted fields keep their default:
@@ -57,7 +59,7 @@ Claude Code plugin
                                         │
                         both call MCP tools ──▶
                                         │
-research-server (src/mcp-server) — 8 tools, thin wrappers over:
+research-server (src/mcp-server) — 10 tools, thin wrappers over:
                                         │
 engine (src/engine) — runtime-independent: schemas, storage (JSON files),
   budget, cache, dedupe, retrieval (arXiv + Semantic Scholar providers),
@@ -84,6 +86,9 @@ The orchestrator creates a project, delegates problem analysis (domain, keywords
 - No citation graph, embeddings/vector retrieval, gap hunting, idea generation, novelty auditing, saturation detection, idea mutation, assumption/evidence ledgers, research graveyard, experiment design, or reviewer simulation. These are explicitly out of scope for Phase 1 (see the design spec) and are never simulated by the agents in this build.
 - Storage is flat JSON files, not a database — fine at the scale of dozens of papers per project, not built for large corpora.
 - `source_quality` is a coarse heuristic (venue known vs. not), not a real bibliometric signal.
+- Search queries within one `search_papers` call run sequentially (parallel across the two providers per query, but not across queries), and neither the on-disk cache nor the JSONL log validates its own file contents against corruption — acceptable at Phase 1's scale, worth hardening before higher-volume use.
+- `search_papers`'s response reports query-level truncation (`queries_truncated`) but not candidate-level truncation when a project's `maxCandidatesPerProject` cap drops newly-discovered (not-yet-retained) papers — the cap never evicts already-retained papers, but a dropped new candidate currently has no signal in the response.
+- Observed live: under a real, near-budget run (12 searches), `literature-scout` completed search and retention but skipped writing per-paper relevance notes and the literature summary — likely a turn-budget effect (`maxTurns: 20`) on complex queries, not a code defect. If you see this, a smaller/sharper query set or a higher `maxTurns` may help.
 
 ## Development
 
