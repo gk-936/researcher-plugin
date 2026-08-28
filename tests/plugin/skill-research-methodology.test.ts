@@ -39,4 +39,10 @@ describe("skills/research-methodology/SKILL.md", () => {
     expect(body).toMatch(/shares? the same discovery-search budget|shared.*budget/i);
     expect(body).toMatch(/searches_remaining/);
   });
+
+  it("documents the rejection rule and mutation/ledger phase boundary update", () => {
+    expect(body).toMatch(/FAIL.*SATURATED|SATURATED.*FAIL/s);
+    expect(body).toMatch(/mutation/i);
+    expect(body).not.toMatch(/Idea mutation, the evidence\/assumption ledgers, the research graveyard.*not implemented/s);
+  });
 });
