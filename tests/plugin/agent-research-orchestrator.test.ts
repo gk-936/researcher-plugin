@@ -9,7 +9,7 @@ describe("agents/research-orchestrator.md", () => {
   it("has the expected frontmatter", () => {
     expect(data.name).toBe("research-orchestrator");
     expect(data.skills).toBe("research-methodology");
-    expect(data.maxTurns).toBe(80);
+    expect(typeof data.maxTurns).toBe("number");
   });
 
   it("instructs creating a project and delegating through all Phase 1+2 sub-agents", () => {
@@ -45,5 +45,16 @@ describe("agents/research-orchestrator.md", () => {
     expect(body).toMatch(/mutation/i);
     expect(body).toMatch(/citation graph/i);
     expect(body).toMatch(/reviewer simulation/i);
+  });
+
+  it("instructs the rejection rule and delegates mutation for FAIL/SATURATED ideas", () => {
+    expect(body).toMatch(/novelty_verdict.*FAIL/s);
+    expect(body).toMatch(/SATURATED/);
+    expect(body).toMatch(/reject_idea_to_graveyard/);
+    expect(body).toMatch(/idea-mutator/);
+  });
+
+  it("has maxTurns increased for the extended pipeline", () => {
+    expect(data.maxTurns).toBeGreaterThan(80);
   });
 });
