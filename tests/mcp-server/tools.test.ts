@@ -147,3 +147,137 @@ describe("listProjects", () => {
     expect(tools.listProjects(ctx, {}).projects).toHaveLength(2);
   });
 });
+
+describe("saveGaps / getGaps", () => {
+  it("saves gaps and reads them back", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    const result = tools.saveGaps(ctx, {
+      project_id: created.project_id,
+      gaps: [
+        {
+          title: "Gap A",
+          category: "efficiency gap",
+          description: "d",
+          evidence_paper_ids: ["a"],
+          what_has_been_attempted: "x",
+          what_remains_unresolved: "y",
+          why_it_matters: "z",
+          why_it_is_difficult: "w",
+          potential_opportunity: "o",
+          confidence: "medium",
+        },
+      ],
+    });
+    expect(result.saved_count).toBe(1);
+    expect(result.capped).toBe(0);
+    expect(tools.getGaps(ctx, { project_id: created.project_id }).gaps).toHaveLength(1);
+  });
+});
+
+describe("getProjectState Phase 2 fields", () => {
+  it("reports gap/idea counts, searches_remaining, and budgets", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    const state = tools.getProjectState(ctx, { project_id: created.project_id }) as Record<string, unknown>;
+    expect(state.counts).toMatchObject({ gaps: 0, ideas_generated: 0, ideas_audited: 0 });
+    expect(state.searches_remaining).toBe(DEFAULT_BUDGET.maxDiscoverySearchesPerProject);
+    expect(state.budgets).toEqual({
+      maxGaps: DEFAULT_BUDGET.maxGaps,
+      maxRawIdeas: DEFAULT_BUDGET.maxRawIdeas,
+      maxIdeasAudited: DEFAULT_BUDGET.maxIdeasAudited,
+    });
+  });
+});
+
+const validNewIdea = {
+  gap_id: null,
+  strategy: "REMOVE_ASSUMPTION",
+  research_question: "q",
+  hypothesis: "h",
+  motivation: "m",
+  mechanism: "mech",
+  expected_contribution: "c",
+  closest_prior_work: [],
+  why_not_solved: "n",
+  why_now: "now",
+};
+
+describe("saveIdea / getIdeas / filterIdeas", () => {
+  it("saves an idea, lists it, then filters it out", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    const saved = tools.saveIdea(ctx, { project_id: created.project_id, idea: validNewIdea });
+    expect(saved.saved).toBe(true);
+    expect(saved.idea!.id).toBe("idea-001");
+
+    expect(tools.getIdeas(ctx, { project_id: created.project_id }).ideas).toHaveLength(1);
+
+    const filtered = tools.filterIdeas(ctx, { project_id: created.project_id, drop_ids: [saved.idea!.id] });
+    expect(filtered.filtered_count).toBe(1);
+    expect(tools.getIdeas(ctx, { project_id: created.project_id, status: "filtered_out" }).ideas).toHaveLength(1);
+  });
+
+  it("reports budget exhaustion instead of throwing", () => {
+    const ctx = setup();
+    ctx.budget = { ...ctx.budget, maxRawIdeas: 1 };
+    const created = tools.createProject(ctx, { problem: "p" });
+    tools.saveIdea(ctx, { project_id: created.project_id, idea: validNewIdea });
+    const second = tools.saveIdea(ctx, { project_id: created.project_id, idea: validNewIdea });
+    expect(second).toEqual({ saved: false, reason: "maxRawIdeas budget exhausted" });
+  });
+});
+
+describe("updateIdeaNovelty / updateIdeaSaturation", () => {
+  it("updates novelty then saturation, flipping status to audited", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    const saved = tools.saveIdea(ctx, { project_id: created.project_id, idea: validNewIdea });
+    const ideaId = saved.idea!.id;
+
+    const afterNovelty = tools.updateIdeaNovelty(ctx, {
+      project_id: created.project_id,
+      idea_id: ideaId,
+      novelty_verdict: "PASS",
+      novelty_evidence: "No close prior work.",
+      novelty_confidence: "high",
+    });
+    expect(afterNovelty.idea.novelty_verdict).toBe("PASS");
+
+    const afterSaturation = tools.updateIdeaSaturation(ctx, {
+      project_id: created.project_id,
+      idea_id: ideaId,
+      saturation: "UNEXPLORED",
+      saturation_evidence: "No matching papers.",
+    });
+    expect(afterSaturation.idea.status).toBe("audited");
+  });
+});
+
+describe("saveIdeaSearchEvidence / getIdeaSearchEvidence", () => {
+  it("round-trips evidence", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    tools.saveIdeaSearchEvidence(ctx, {
+      project_id: created.project_id,
+      idea_id: "idea-001",
+      queries: ["q1"],
+      papers: [{ id: "arxiv:1", title: "T", year: 2024 }],
+      notes: "n",
+    });
+    expect(tools.getIdeaSearchEvidence(ctx, { project_id: created.project_id, idea_id: "idea-001" })).toEqual({
+      idea_id: "idea-001",
+      queries: ["q1"],
+      papers: [{ id: "arxiv:1", title: "T", year: 2024 }],
+      notes: "n",
+    });
+  });
+
+  it("returns an error object when no evidence has been saved", () => {
+    const ctx = setup();
+    const created = tools.createProject(ctx, { problem: "p" });
+    expect(tools.getIdeaSearchEvidence(ctx, { project_id: created.project_id, idea_id: "idea-999" })).toEqual({
+      error: "No search evidence saved for this idea.",
+    });
+  });
+});

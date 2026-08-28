@@ -130,5 +130,104 @@ server.registerTool(
   async (input) => respond(tools.getLiteratureSummary(ctx, input))
 );
 
+server.registerTool(
+  "save_gaps",
+  {
+    title: "Save Research Gaps",
+    description: "Save a batch of research gaps found for a project, each citing retained papers as evidence. Caps at the project's gap budget.",
+    inputSchema: tools.saveGapsInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  async (input) => respond(tools.saveGaps(ctx, input))
+);
+
+server.registerTool(
+  "get_gaps",
+  {
+    title: "Get Research Gaps",
+    description: "Get the research gaps saved for a project, optionally filtered by id.",
+    inputSchema: tools.getGapsInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getGaps(ctx, input))
+);
+
+server.registerTool(
+  "save_idea",
+  {
+    title: "Save Research Idea",
+    description: "Create a new candidate research idea record with its generator-owned fields. Novelty and saturation fields start null.",
+    inputSchema: tools.saveIdeaInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  async (input) => respond(tools.saveIdea(ctx, input))
+);
+
+server.registerTool(
+  "get_ideas",
+  {
+    title: "Get Research Ideas",
+    description: "Get the research ideas saved for a project, optionally filtered by id, status, or motivating gap.",
+    inputSchema: tools.getIdeasInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getIdeas(ctx, input))
+);
+
+server.registerTool(
+  "filter_ideas",
+  {
+    title: "Filter Research Ideas",
+    description: "Mark the given idea ids as filtered_out (e.g. duplicates or over the audit-shortlist budget). Leaves other ideas untouched.",
+    inputSchema: tools.filterIdeasInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.filterIdeas(ctx, input))
+);
+
+server.registerTool(
+  "update_idea_novelty",
+  {
+    title: "Update Idea Novelty",
+    description: "Write only the novelty_verdict/novelty_evidence/novelty_confidence fields for an idea, from an adversarial prior-art search.",
+    inputSchema: tools.updateIdeaNoveltyInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.updateIdeaNovelty(ctx, input))
+);
+
+server.registerTool(
+  "update_idea_saturation",
+  {
+    title: "Update Idea Saturation",
+    description: "Write only the saturation/saturation_evidence fields for an idea. Flips the idea to audited once both novelty and saturation are set.",
+    inputSchema: tools.updateIdeaSaturationInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.updateIdeaSaturation(ctx, input))
+);
+
+server.registerTool(
+  "save_idea_search_evidence",
+  {
+    title: "Save Idea Search Evidence",
+    description: "Persist the queries and papers a novelty audit search found for one idea, so saturation-detector can reuse it without re-searching.",
+    inputSchema: tools.saveIdeaSearchEvidenceInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.saveIdeaSearchEvidence(ctx, input))
+);
+
+server.registerTool(
+  "get_idea_search_evidence",
+  {
+    title: "Get Idea Search Evidence",
+    description: "Get the search evidence saved for an idea's novelty audit, or an error if none has been saved yet.",
+    inputSchema: tools.getIdeaSearchEvidenceInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getIdeaSearchEvidence(ctx, input))
+);
+
 const transport = new StdioServerTransport();
 await server.connect(transport);
