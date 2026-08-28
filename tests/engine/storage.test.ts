@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProjectStore } from "../../src/engine/storage.js";
 import { DEFAULT_BUDGET } from "../../src/engine/budget.js";
-import type { Paper, ResearchSpec } from "../../src/engine/schemas.js";
+import type { Paper, ResearchSpec, NewGap, NewIdea } from "../../src/engine/schemas.js";
 
 let dir: string;
 let store: ProjectStore;
@@ -168,5 +168,183 @@ describe("ProjectStore.saveLiteratureSummary / getLiteratureSummary", () => {
     expect(store.getLiteratureSummary(project.id)).toEqual({ summary: "a short summary", taxonomy_dimensions: ["dimension a"] });
     expect(store.getProject(project.id)!.phases_completed).toContain("literature_discovery");
     expect(store.getProject(project.id)!.status).toBe("literature_done");
+  });
+});
+
+function newGap(title: string, overrides: Partial<NewGap> = {}): NewGap {
+  return {
+    title,
+    category: "efficiency gap",
+    description: "d",
+    evidence_paper_ids: ["a"],
+    what_has_been_attempted: "x",
+    what_remains_unresolved: "y",
+    why_it_matters: "z",
+    why_it_is_difficult: "w",
+    potential_opportunity: "o",
+    confidence: "medium",
+    ...overrides,
+  };
+}
+
+describe("ProjectStore.saveGaps / getGaps", () => {
+  it("assigns sequential ids and marks gap_hunting complete", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const result = store.saveGaps(project.id, [newGap("Gap A"), newGap("Gap B")], 8);
+    expect(result.saved.map((g) => g.id)).toEqual(["gap-001", "gap-002"]);
+    expect(result.capped).toBe(0);
+    expect(store.getProject(project.id)!.phases_completed).toContain("gap_hunting");
+    expect(store.getAllGaps(project.id)).toHaveLength(2);
+  });
+
+  it("caps at maxGaps and reports the capped count", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const result = store.saveGaps(project.id, [newGap("A"), newGap("B"), newGap("C")], 2);
+    expect(result.saved).toHaveLength(2);
+    expect(result.capped).toBe(1);
+  });
+
+  it("continues numbering across multiple saveGaps calls", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    store.saveGaps(project.id, [newGap("A")], 8);
+    const second = store.saveGaps(project.id, [newGap("B")], 8);
+    expect(second.saved[0].id).toBe("gap-002");
+  });
+
+  it("filters by ids", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    store.saveGaps(project.id, [newGap("A"), newGap("B")], 8);
+    expect(store.getGaps(project.id, { ids: ["gap-002"] }).map((g) => g.title)).toEqual(["B"]);
+  });
+
+  it("throws on an unknown project id", () => {
+    store = freshStore();
+    expect(() => store.saveGaps("nope", [], 8)).toThrow();
+  });
+});
+
+function newIdea(question: string, overrides: Partial<NewIdea> = {}): NewIdea {
+  return {
+    gap_id: null,
+    strategy: "REMOVE_ASSUMPTION",
+    research_question: question,
+    hypothesis: "h",
+    motivation: "m",
+    mechanism: "mech",
+    expected_contribution: "c",
+    closest_prior_work: [],
+    why_not_solved: "n",
+    why_now: "now",
+    ...overrides,
+  };
+}
+
+describe("ProjectStore.saveIdea / getIdeas", () => {
+  it("assigns sequential ids, defaults audit fields to null, marks idea_generation complete", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), 10);
+    expect(idea!.id).toBe("idea-001");
+    expect(idea!.status).toBe("generated");
+    expect(idea!.novelty_verdict).toBeNull();
+    expect(idea!.saturation).toBeNull();
+    expect(store.getProject(project.id)!.phases_completed).toContain("idea_generation");
+  });
+
+  it("returns null once maxRawIdeas is reached", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    store.saveIdea(project.id, newIdea("Q1"), 1);
+    expect(store.saveIdea(project.id, newIdea("Q2"), 1)).toBeNull();
+  });
+
+  it("filters by status and gap_id", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    store.saveIdea(project.id, newIdea("Q1", { gap_id: "gap-001" }), 10);
+    store.saveIdea(project.id, newIdea("Q2", { gap_id: null }), 10);
+    expect(store.getIdeas(project.id, { gap_id: "gap-001" }).map((i) => i.research_question)).toEqual(["Q1"]);
+    expect(store.getIdeas(project.id, { status: "generated" })).toHaveLength(2);
+  });
+});
+
+describe("ProjectStore.filterIdeas", () => {
+  it("marks dropped ideas filtered_out and leaves the rest untouched", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const a = store.saveIdea(project.id, newIdea("Q1"), 10)!;
+    const b = store.saveIdea(project.id, newIdea("Q2"), 10)!;
+    const count = store.filterIdeas(project.id, [a.id]);
+    expect(count).toBe(1);
+    expect(store.getIdeas(project.id, { ids: [a.id] })[0].status).toBe("filtered_out");
+    expect(store.getIdeas(project.id, { ids: [b.id] })[0].status).toBe("generated");
+  });
+});
+
+describe("ProjectStore.updateIdeaNovelty / updateIdeaSaturation", () => {
+  it("writes only the owned fields and flips to audited once both passes complete", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), 10)!;
+
+    const afterNovelty = store.updateIdeaNovelty(project.id, idea.id, "PASS", "No close prior work found.", "high");
+    expect(afterNovelty.novelty_verdict).toBe("PASS");
+    expect(afterNovelty.status).toBe("generated");
+    expect(afterNovelty.saturation).toBeNull();
+
+    const afterSaturation = store.updateIdeaSaturation(project.id, idea.id, "UNEXPLORED", "No matching papers.");
+    expect(afterSaturation.saturation).toBe("UNEXPLORED");
+    expect(afterSaturation.status).toBe("audited");
+  });
+
+  it("does not flip to audited from saturation alone if novelty hasn't run", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    const idea = store.saveIdea(project.id, newIdea("Q1"), 10)!;
+    const result = store.updateIdeaSaturation(project.id, idea.id, "CROWDED", "Many variants exist.");
+    expect(result.status).toBe("generated");
+  });
+
+  it("throws on an unknown idea id", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    expect(() => store.updateIdeaNovelty(project.id, "idea-999", "PASS", "e", "low")).toThrow();
+  });
+});
+
+describe("ProjectStore.saveIdeaSearchEvidence / getIdeaSearchEvidence", () => {
+  it("round-trips evidence for an idea", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    store.saveIdeaSearchEvidence(project.id, {
+      idea_id: "idea-001",
+      queries: ["q1"],
+      papers: [{ id: "arxiv:1", title: "T", year: 2024 }],
+      notes: "n",
+    });
+    expect(store.getIdeaSearchEvidence(project.id, "idea-001")).toEqual({
+      idea_id: "idea-001",
+      queries: ["q1"],
+      papers: [{ id: "arxiv:1", title: "T", year: 2024 }],
+      notes: "n",
+    });
+  });
+
+  it("returns null when no evidence has been saved for that idea", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    expect(store.getIdeaSearchEvidence(project.id, "idea-999")).toBeNull();
+  });
+
+  it("replaces prior evidence for the same idea rather than duplicating", () => {
+    store = freshStore();
+    const project = store.createProject("p", DEFAULT_BUDGET);
+    store.saveIdeaSearchEvidence(project.id, { idea_id: "idea-001", queries: ["q1"], papers: [], notes: "first" });
+    store.saveIdeaSearchEvidence(project.id, { idea_id: "idea-001", queries: ["q2"], papers: [], notes: "second" });
+    expect(store.getIdeaSearchEvidence(project.id, "idea-001")!.notes).toBe("second");
   });
 });
