@@ -10,6 +10,8 @@ import {
   SaturationSchema,
   NewAssumptionLedgerEntrySchema,
   MutationOperatorSchema,
+  NewExperimentSchema,
+  NewReviewSchema,
   type Budget,
 } from "../engine/schemas.js";
 import type { ProjectStore } from "../engine/storage.js";
@@ -279,4 +281,42 @@ export function getEvidence(ctx: ToolContext, input: z.infer<typeof getEvidenceI
 export const getGraveyardInput = z.object({ project_id: z.string() }).strict();
 export function getGraveyard(ctx: ToolContext, input: z.infer<typeof getGraveyardInput>) {
   return { graveyard: ctx.store.getGraveyard(input.project_id) };
+}
+
+export const saveExperimentInput = z
+  .object({ project_id: z.string(), idea_id: z.string(), experiment: NewExperimentSchema })
+  .strict();
+export function saveExperiment(ctx: ToolContext, input: z.infer<typeof saveExperimentInput>) {
+  const experiment = ctx.store.saveExperiment(input.project_id, input.idea_id, input.experiment);
+  return { saved: true as const, experiment };
+}
+
+export const getExperimentInput = z.object({ project_id: z.string(), idea_id: z.string() }).strict();
+export function getExperiment(ctx: ToolContext, input: z.infer<typeof getExperimentInput>) {
+  const experiment = ctx.store.getExperiment(input.project_id, input.idea_id);
+  if (!experiment) return { error: "No experiment saved for this idea." };
+  return experiment;
+}
+
+export const getExperimentsInput = z.object({ project_id: z.string() }).strict();
+export function getExperiments(ctx: ToolContext, input: z.infer<typeof getExperimentsInput>) {
+  return { experiments: ctx.store.getAllExperiments(input.project_id) };
+}
+
+export const saveReviewInput = z.object({ project_id: z.string(), idea_id: z.string(), review: NewReviewSchema }).strict();
+export function saveReview(ctx: ToolContext, input: z.infer<typeof saveReviewInput>) {
+  const review = ctx.store.saveReview(input.project_id, input.idea_id, input.review);
+  return { saved: true as const, review };
+}
+
+export const getReviewInput = z.object({ project_id: z.string(), idea_id: z.string() }).strict();
+export function getReview(ctx: ToolContext, input: z.infer<typeof getReviewInput>) {
+  const review = ctx.store.getReview(input.project_id, input.idea_id);
+  if (!review) return { error: "No review saved for this idea." };
+  return review;
+}
+
+export const getReviewsInput = z.object({ project_id: z.string() }).strict();
+export function getReviews(ctx: ToolContext, input: z.infer<typeof getReviewsInput>) {
+  return { reviews: ctx.store.getAllReviews(input.project_id) };
 }

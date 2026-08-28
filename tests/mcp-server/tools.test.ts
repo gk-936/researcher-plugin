@@ -356,3 +356,58 @@ describe("getEvidence / getGraveyard", () => {
     expect(tools.getGraveyard(ctx, { project_id: created.project_id }).graveyard).toEqual([]);
   });
 });
+
+describe("save_experiment / get_experiment / get_experiments", () => {
+  it("saves and retrieves an experiment for an idea", () => {
+    const ctx = setup();
+    const project = tools.createProject(ctx, { problem: "p" });
+    const idea = tools.saveIdea(ctx, { project_id: project.project_id, idea: baseIdeaInput() });
+    const result = tools.saveExperiment(ctx, {
+      project_id: project.project_id,
+      idea_id: idea.idea!.id,
+      experiment: {
+        idea_id: idea.idea!.id,
+        minimal_validation: { setup: "s", metric: "m", expected_signal: "e", estimated_effort: "1 day" },
+        full_roadmap: ["step 1"],
+        risks: [],
+      },
+    });
+    expect(result.saved).toBe(true);
+    expect(tools.getExperiment(ctx, { project_id: project.project_id, idea_id: idea.idea!.id })).toMatchObject({
+      idea_id: idea.idea!.id,
+    });
+    expect(tools.getExperiments(ctx, { project_id: project.project_id }).experiments).toHaveLength(1);
+  });
+
+  it("get_experiment returns an error for an idea with no saved experiment", () => {
+    const ctx = setup();
+    const project = tools.createProject(ctx, { problem: "p" });
+    const result = tools.getExperiment(ctx, { project_id: project.project_id, idea_id: "idea-999" });
+    expect(result).toEqual({ error: "No experiment saved for this idea." });
+  });
+});
+
+describe("save_review / get_review / get_reviews", () => {
+  it("saves and retrieves a review for an idea", () => {
+    const ctx = setup();
+    const project = tools.createProject(ctx, { problem: "p" });
+    const idea = tools.saveIdea(ctx, { project_id: project.project_id, idea: baseIdeaInput() });
+    const result = tools.saveReview(ctx, {
+      project_id: project.project_id,
+      idea_id: idea.idea!.id,
+      review: { idea_id: idea.idea!.id, objections: [], overall_recommendation: "accept" },
+    });
+    expect(result.saved).toBe(true);
+    expect(tools.getReview(ctx, { project_id: project.project_id, idea_id: idea.idea!.id })).toMatchObject({
+      idea_id: idea.idea!.id,
+    });
+    expect(tools.getReviews(ctx, { project_id: project.project_id }).reviews).toHaveLength(1);
+  });
+
+  it("get_review returns an error for an idea with no saved review", () => {
+    const ctx = setup();
+    const project = tools.createProject(ctx, { problem: "p" });
+    const result = tools.getReview(ctx, { project_id: project.project_id, idea_id: "idea-999" });
+    expect(result).toEqual({ error: "No review saved for this idea." });
+  });
+});

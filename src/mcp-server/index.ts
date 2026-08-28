@@ -295,5 +295,71 @@ server.registerTool(
   async (input) => respond(tools.getGraveyard(ctx, input))
 );
 
+server.registerTool(
+  "save_experiment",
+  {
+    title: "Save Experiment Design",
+    description: "Save the minimal validation experiment, full experimental roadmap, and risks for one evaluated idea.",
+    inputSchema: tools.saveExperimentInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.saveExperiment(ctx, input))
+);
+
+server.registerTool(
+  "get_experiment",
+  {
+    title: "Get Experiment Design",
+    description: "Get the saved experiment design for one idea, or an error if it hasn't been evaluated.",
+    inputSchema: tools.getExperimentInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getExperiment(ctx, input))
+);
+
+server.registerTool(
+  "get_experiments",
+  {
+    title: "Get All Experiment Designs",
+    description: "Get every saved experiment design for a project.",
+    inputSchema: tools.getExperimentsInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getExperiments(ctx, input))
+);
+
+server.registerTool(
+  "save_review",
+  {
+    title: "Save Reviewer Objections",
+    description: "Save the simulated reviewer's objections and overall recommendation for one evaluated idea.",
+    inputSchema: tools.saveReviewInput,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.saveReview(ctx, input))
+);
+
+server.registerTool(
+  "get_review",
+  {
+    title: "Get Reviewer Objections",
+    description: "Get the saved reviewer objections for one idea, or an error if it hasn't been evaluated.",
+    inputSchema: tools.getReviewInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getReview(ctx, input))
+);
+
+server.registerTool(
+  "get_reviews",
+  {
+    title: "Get All Reviewer Objections",
+    description: "Get every saved review for a project.",
+    inputSchema: tools.getReviewsInput,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async (input) => respond(tools.getReviews(ctx, input))
+);
+
 const transport = new StdioServerTransport();
 await server.connect(transport);
