@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { slugify, createProjectId, hashPaperId, createGapId, createIdeaId } from "../../src/engine/ids.js";
+import {
+  slugify,
+  createProjectId,
+  hashPaperId,
+  createGapId,
+  createIdeaId,
+  createGraveyardEntryId,
+  createAssumptionId,
+  createEvidenceId,
+} from "../../src/engine/ids.js";
 
 describe("slugify", () => {
   it("lowercases, strips punctuation, and joins with hyphens", () => {
@@ -57,5 +66,23 @@ describe("createIdeaId", () => {
   it("zero-pads to 3 digits", () => {
     expect(createIdeaId(1)).toBe("idea-001");
     expect(createIdeaId(42)).toBe("idea-042");
+  });
+});
+
+describe("createGraveyardEntryId", () => {
+  it("matches graveyard-NNN", () => {
+    expect(createGraveyardEntryId(1)).toBe("graveyard-001");
+  });
+});
+
+describe("createAssumptionId", () => {
+  it("matches assumption-NNN", () => {
+    expect(createAssumptionId(3)).toBe("assumption-003");
+  });
+});
+
+describe("createEvidenceId", () => {
+  it("matches evidence-NNN", () => {
+    expect(createEvidenceId(12)).toBe("evidence-012");
   });
 });

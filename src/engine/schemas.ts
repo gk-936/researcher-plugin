@@ -99,8 +99,25 @@ export type NoveltyConfidence = z.infer<typeof NoveltyConfidenceSchema>;
 export const SaturationSchema = z.enum(["UNEXPLORED", "UNDEREXPLORED", "EMERGING", "ACTIVE", "CROWDED", "SATURATED"]);
 export type Saturation = z.infer<typeof SaturationSchema>;
 
-export const IdeaStatusSchema = z.enum(["generated", "filtered_out", "audited"]);
+export const IdeaStatusSchema = z.enum(["generated", "filtered_out", "audited", "rejected"]);
 export type IdeaStatus = z.infer<typeof IdeaStatusSchema>;
+
+export const MutationOperatorSchema = z.enum([
+  "REMOVE_ASSUMPTION",
+  "ADD_CONSTRAINT",
+  "CHANGE_OBJECTIVE",
+  "CHANGE_EVALUATION",
+  "CHANGE_DATA",
+  "CHANGE_SCALE",
+  "CHANGE_RESOURCE_LIMIT",
+  "CHANGE_ENVIRONMENT",
+  "CHANGE_TASK",
+  "CHANGE_MODEL_CLASS",
+  "COMBINE_WITH_ADJACENT_FIELD",
+  "STRESS_TEST",
+  "REVERSE_DIRECTION",
+]);
+export type MutationOperator = z.infer<typeof MutationOperatorSchema>;
 
 export const IdeaSchema = z.object({
   id: z.string(),
@@ -120,6 +137,9 @@ export const IdeaSchema = z.object({
   novelty_confidence: NoveltyConfidenceSchema.nullable(),
   saturation: SaturationSchema.nullable(),
   saturation_evidence: z.string().nullable(),
+  mutation_depth: z.number().int().nonnegative(),
+  mutated_from: z.string().nullable(),
+  mutation_operator: MutationOperatorSchema.nullable(),
 });
 export type Idea = z.infer<typeof IdeaSchema>;
 
@@ -145,6 +165,59 @@ export const IdeaSearchEvidenceSchema = z.object({
 });
 export type IdeaSearchEvidence = z.infer<typeof IdeaSearchEvidenceSchema>;
 
+export const GraveyardEntrySchema = z.object({
+  id: z.string(),
+  idea_id: z.string(),
+  research_question: z.string(),
+  hypothesis: z.string(),
+  reason_rejected: z.string(),
+  novelty_verdict: NoveltyVerdictSchema,
+  saturation: SaturationSchema,
+  closest_prior_work: z.array(z.string()),
+  potential_revival_direction: z.string().nullable(),
+  mutated_into: z.string().nullable(),
+  rejected_at: z.string(),
+});
+export type GraveyardEntry = z.infer<typeof GraveyardEntrySchema>;
+
+export const AssumptionStatusSchema = z.enum(["assumed", "partially_challenged", "refuted", "supported"]);
+export type AssumptionStatus = z.infer<typeof AssumptionStatusSchema>;
+
+export const AssumptionLedgerEntrySchema = z.object({
+  id: z.string(),
+  assumption: z.string(),
+  papers_supporting: z.array(z.string()),
+  papers_challenging: z.array(z.string()),
+  status: AssumptionStatusSchema,
+  remaining_question: z.string(),
+});
+export type AssumptionLedgerEntry = z.infer<typeof AssumptionLedgerEntrySchema>;
+
+export const NewAssumptionLedgerEntrySchema = AssumptionLedgerEntrySchema.omit({ id: true });
+export type NewAssumptionLedgerEntry = z.infer<typeof NewAssumptionLedgerEntrySchema>;
+
+export const EvidenceTypeSchema = z.enum([
+  "experimental",
+  "theoretical",
+  "observational",
+  "survey",
+  "benchmark",
+  "author_claim",
+  "inference",
+]);
+export type EvidenceType = z.infer<typeof EvidenceTypeSchema>;
+
+export const EvidenceLedgerEntrySchema = z.object({
+  id: z.string(),
+  claim: z.string(),
+  evidence_paper_ids: z.array(z.string()),
+  evidence_type: EvidenceTypeSchema,
+  confidence: GapConfidenceSchema,
+  status: z.enum(["verified", "unverified", "disputed"]),
+  source: z.string(),
+});
+export type EvidenceLedgerEntry = z.infer<typeof EvidenceLedgerEntrySchema>;
+
 export const BudgetSchema = z.object({
   maxDiscoverySearchesPerProject: z.number().int().positive(),
   maxCandidatesPerProject: z.number().int().positive(),
@@ -155,6 +228,8 @@ export const BudgetSchema = z.object({
   maxGaps: z.number().int().positive(),
   maxRawIdeas: z.number().int().positive(),
   maxIdeasAudited: z.number().int().positive(),
+  maxMutationDepth: z.number().int().nonnegative(),
+  maxMutationsPerProject: z.number().int().nonnegative(),
 });
 export type Budget = z.infer<typeof BudgetSchema>;
 

@@ -29,3 +29,15 @@ export function createGapId(index: number): string {
 export function createIdeaId(index: number): string {
   return `idea-${String(index).padStart(3, "0")}`;
 }
+
+export function createGraveyardEntryId(index: number): string {
+  return `graveyard-${String(index).padStart(3, "0")}`;
+}
+
+export function createAssumptionId(index: number): string {
+  return `assumption-${String(index).padStart(3, "0")}`;
+}
+
+export function createEvidenceId(index: number): string {
+  return `evidence-${String(index).padStart(3, "0")}`;
+}

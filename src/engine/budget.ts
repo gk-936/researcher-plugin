@@ -11,6 +11,8 @@ export const DEFAULT_BUDGET: Budget = {
   maxGaps: 8,
   maxRawIdeas: 10,
   maxIdeasAudited: 4,
+  maxMutationDepth: 2,
+  maxMutationsPerProject: 3,
 };
 
 export function loadBudget(configPath: string): Budget {

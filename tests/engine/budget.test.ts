@@ -39,4 +39,9 @@ describe("DEFAULT_BUDGET", () => {
     expect(DEFAULT_BUDGET.maxRawIdeas).toBe(10);
     expect(DEFAULT_BUDGET.maxIdeasAudited).toBe(4);
   });
+
+  it("includes the Phase 3A mutation budget fields", () => {
+    expect(DEFAULT_BUDGET.maxMutationDepth).toBe(2);
+    expect(DEFAULT_BUDGET.maxMutationsPerProject).toBe(3);
+  });
 });
